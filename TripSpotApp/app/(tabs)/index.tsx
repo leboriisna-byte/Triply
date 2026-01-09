@@ -35,12 +35,10 @@ export default function HomeScreen() {
             >
                 {/* Header */}
                 <View style={styles.header}>
-                    <View>
-                        <Text style={styles.logo}>
-                            Trip<Text style={styles.logoAccent}>Spot</Text>
-                        </Text>
-                        <View style={styles.logoUnderline} />
-                    </View>
+                    <Image
+                        source={require("../../assets/logonobg.png")}
+                        style={styles.logoImage}
+                    />
                     <TouchableOpacity
                         style={styles.profileButton}
                         onPress={handleProfilePress}
@@ -149,25 +147,18 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: "row",
         alignItems: "center",
-        justifyContent: "space-between",
+        justifyContent: "center",
         paddingVertical: 16,
+        position: "relative",
     },
-    logo: {
-        fontSize: 28,
-        fontWeight: "bold",
-        color: "#111827",
-    },
-    logoAccent: {
-        color: "#3B82F6",
-    },
-    logoUnderline: {
-        height: 4,
-        width: 64,
-        backgroundColor: "#60A5FA",
-        borderRadius: 2,
-        marginTop: 4,
+    logoImage: {
+        width: 360,
+        height: 120,
+        resizeMode: "contain",
     },
     profileButton: {
+        position: "absolute",
+        right: 0,
         width: 40,
         height: 40,
         borderRadius: 20,

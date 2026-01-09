@@ -4,6 +4,7 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
+    Image,
     StyleSheet,
     KeyboardAvoidingView,
     Platform,
@@ -76,10 +77,10 @@ export default function AuthScreen() {
                 >
                     {/* Logo */}
                     <View style={styles.logoContainer}>
-                        <Text style={styles.logo}>
-                            Trip<Text style={styles.logoAccent}>Spot</Text>
-                        </Text>
-                        <View style={styles.logoUnderline} />
+                        <Image
+                            source={require("../assets/logonobg.png")}
+                            style={styles.logoImage}
+                        />
                         <Text style={styles.tagline}>Plan your perfect adventure</Text>
                     </View>
 
@@ -203,20 +204,10 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginBottom: 48,
     },
-    logo: {
-        fontSize: 42,
-        fontWeight: "bold",
-        color: "#111827",
-    },
-    logoAccent: {
-        color: "#3B82F6",
-    },
-    logoUnderline: {
-        height: 4,
-        width: 80,
-        backgroundColor: "#60A5FA",
-        borderRadius: 2,
-        marginTop: 8,
+    logoImage: {
+        width: 600,
+        height: 240,
+        resizeMode: "contain",
     },
     tagline: {
         marginTop: 12,
