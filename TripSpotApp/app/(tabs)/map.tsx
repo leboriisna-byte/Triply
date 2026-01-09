@@ -1,14 +1,18 @@
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { PROVIDER_DEFAULT, Marker } from "react-native-maps";
 import { router } from "expo-router";
 import { useSpots } from "../../hooks/useSpots";
+import { useTrips } from "../../hooks/useTrips";
+import { useState } from "react";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function MapScreen() {
-    const { spots, loading } = useSpots();
+    const { spots, loading: spotsLoading } = useSpots();
+    const { trips, loading: tripsLoading } = useTrips();
+    const [activeTab, setActiveTab] = useState<'spots' | 'trips'>('trips');
 
     return (
         <View style={styles.container}>
@@ -26,7 +30,7 @@ export default function MapScreen() {
                     showsUserLocation
                     showsMyLocationButton={false}
                 >
-                    {spots.map((spot) => (
+                    {activeTab === 'spots' && spots.map((spot) => (
                         <Marker
                             key={spot.id}
                             coordinate={{
@@ -58,61 +62,112 @@ export default function MapScreen() {
                         {/* Handle */}
                         <View style={styles.handle} />
 
-                        {/* Header */}
-                        <View style={styles.sheetHeader}>
-                            <View>
-                                <Text style={styles.sheetTitle}>My Spots</Text>
-                                <Text style={styles.sheetSubtitle}>{spots.length} Spots Saved</Text>
-                            </View>
+                        {/* Tab Switcher */}
+                        <View style={styles.tabContainer}>
                             <TouchableOpacity
-                                style={styles.importButton}
-                                onPress={() => router.push("/import")}
+                                style={[styles.tab, activeTab === 'trips' && styles.tabActive]}
+                                onPress={() => setActiveTab('trips')}
                             >
-                                <Text style={styles.importButtonText}>Import</Text>
+                                <Ionicons name="airplane" size={18} color={activeTab === 'trips' ? '#3B82F6' : '#9CA3AF'} />
+                                <Text style={[styles.tabText, activeTab === 'trips' && styles.tabTextActive]}>
+                                    My Trips ({trips.length})
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.tab, activeTab === 'spots' && styles.tabActive]}
+                                onPress={() => setActiveTab('spots')}
+                            >
+                                <Ionicons name="location" size={18} color={activeTab === 'spots' ? '#3B82F6' : '#9CA3AF'} />
+                                <Text style={[styles.tabText, activeTab === 'spots' && styles.tabTextActive]}>
+                                    Saved Spots ({spots.length})
+                                </Text>
                             </TouchableOpacity>
                         </View>
 
-                        {/* Spots List or Empty State */}
-                        {spots.length === 0 ? (
-                            <View style={styles.emptyState}>
-                                <View style={styles.emptyIcon}>
-                                    <Ionicons name="location-outline" size={32} color="#1991E1" />
-                                </View>
-                                <Text style={styles.emptyTitle}>No spots saved yet</Text>
-                                <Text style={styles.emptySubtitle}>
-                                    Import spots from TikTok or Instagram
-                                </Text>
-                            </View>
-                        ) : (
-                            <View style={styles.spotsList}>
-                                {spots.slice(0, 3).map((spot) => (
+                        {activeTab === 'trips' ? (
+                            // Trips Tab
+                            trips.length === 0 ? (
+                                <View style={styles.emptyState}>
+                                    <View style={styles.emptyIcon}>
+                                        <Ionicons name="airplane-outline" size={32} color="#1991E1" />
+                                    </View>
+                                    <Text style={styles.emptyTitle}>No trips yet</Text>
+                                    <Text style={styles.emptySubtitle}>
+                                        Create your first AI-powered trip!
+                                    </Text>
                                     <TouchableOpacity
-                                        key={spot.id}
-                                        style={styles.spotItem}
-                                        onPress={() => router.push(`/spot/${spot.id}`)}
+                                        style={styles.createButton}
+                                        onPress={() => router.push("/trip/new")}
                                     >
-                                        <View style={styles.spotIcon}>
-                                            <Ionicons
-                                                name={getCategoryIcon(spot.category)}
-                                                size={20}
-                                                color="#3B82F6"
-                                            />
-                                        </View>
-                                        <View style={styles.spotInfo}>
-                                            <Text style={styles.spotName} numberOfLines={1}>{spot.name}</Text>
-                                            <Text style={styles.spotLocation} numberOfLines={1}>
-                                                {spot.country}
-                                            </Text>
-                                        </View>
-                                        <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                                        <Text style={styles.createButtonText}>Create Trip</Text>
                                     </TouchableOpacity>
-                                ))}
-                                {spots.length > 3 && (
-                                    <TouchableOpacity style={styles.viewAllButton}>
-                                        <Text style={styles.viewAllText}>View all {spots.length} spots</Text>
+                                </View>
+                            ) : (
+                                <ScrollView style={styles.tripsList} showsVerticalScrollIndicator={false}>
+                                    {trips.map((trip) => (
+                                        <TouchableOpacity
+                                            key={trip.id}
+                                            style={styles.tripItem}
+                                            onPress={() => router.push(`/trip/${trip.id}`)}
+                                        >
+                                            <View style={styles.tripIcon}>
+                                                <Text style={styles.tripEmoji}>🗺️</Text>
+                                            </View>
+                                            <View style={styles.tripInfo}>
+                                                <Text style={styles.tripName} numberOfLines={1}>{trip.name}</Text>
+                                                <Text style={styles.tripLocation} numberOfLines={1}>
+                                                    {trip.destination} • {trip.duration_days} days
+                                                </Text>
+                                            </View>
+                                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            )
+                        ) : (
+                            // Spots Tab
+                            spots.length === 0 ? (
+                                <View style={styles.emptyState}>
+                                    <View style={styles.emptyIcon}>
+                                        <Ionicons name="location-outline" size={32} color="#1991E1" />
+                                    </View>
+                                    <Text style={styles.emptyTitle}>No spots saved yet</Text>
+                                    <Text style={styles.emptySubtitle}>
+                                        Import spots from TikTok or Instagram
+                                    </Text>
+                                    <TouchableOpacity
+                                        style={styles.createButton}
+                                        onPress={() => router.push("/import")}
+                                    >
+                                        <Text style={styles.createButtonText}>Import Spots</Text>
                                     </TouchableOpacity>
-                                )}
-                            </View>
+                                </View>
+                            ) : (
+                                <ScrollView style={styles.spotsList} showsVerticalScrollIndicator={false}>
+                                    {spots.map((spot) => (
+                                        <TouchableOpacity
+                                            key={spot.id}
+                                            style={styles.spotItem}
+                                            onPress={() => router.push(`/spot/${spot.id}`)}
+                                        >
+                                            <View style={styles.spotIcon}>
+                                                <Ionicons
+                                                    name={getCategoryIcon(spot.category)}
+                                                    size={20}
+                                                    color="#3B82F6"
+                                                />
+                                            </View>
+                                            <View style={styles.spotInfo}>
+                                                <Text style={styles.spotName} numberOfLines={1}>{spot.name}</Text>
+                                                <Text style={styles.spotLocation} numberOfLines={1}>
+                                                    {spot.country}
+                                                </Text>
+                                            </View>
+                                            <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            )
                         )}
                     </View>
                 </SafeAreaView>
@@ -276,5 +331,77 @@ const styles = StyleSheet.create({
     viewAllText: {
         color: "#3B82F6",
         fontWeight: "500",
+    },
+    tabContainer: {
+        flexDirection: "row",
+        marginBottom: 16,
+        gap: 8,
+    },
+    tab: {
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#F3F4F6",
+        paddingVertical: 12,
+        borderRadius: 12,
+        gap: 6,
+    },
+    tabActive: {
+        backgroundColor: "#DBEAFE",
+    },
+    tabText: {
+        fontSize: 14,
+        color: "#9CA3AF",
+        fontWeight: "500",
+    },
+    tabTextActive: {
+        color: "#3B82F6",
+    },
+    createButton: {
+        backgroundColor: "#1F2937",
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 24,
+        marginTop: 16,
+    },
+    createButtonText: {
+        color: "#FFFFFF",
+        fontWeight: "600",
+    },
+    tripsList: {
+        maxHeight: 200,
+    },
+    tripItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#F9FAFB",
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 8,
+    },
+    tripIcon: {
+        width: 40,
+        height: 40,
+        backgroundColor: "#FEF3C7",
+        borderRadius: 20,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    tripEmoji: {
+        fontSize: 18,
+    },
+    tripInfo: {
+        flex: 1,
+        marginLeft: 12,
+    },
+    tripName: {
+        fontSize: 16,
+        fontWeight: "500",
+        color: "#111827",
+    },
+    tripLocation: {
+        fontSize: 14,
+        color: "#6B7280",
     },
 });

@@ -39,10 +39,18 @@ export default function AuthScreen() {
         try {
             if (isSignUp) {
                 await signUp(email, password, name);
-                Alert.alert(
-                    "Check your email",
-                    "We sent you a confirmation link. Please verify your email to continue."
-                );
+                // For development - just sign in directly after signup
+                // In production, you'd want email verification
+                try {
+                    await signIn(email, password);
+                    router.replace("/(tabs)");
+                } catch {
+                    Alert.alert(
+                        "Account Created",
+                        "Your account was created. Please sign in."
+                    );
+                    setIsSignUp(false);
+                }
             } else {
                 await signIn(email, password);
                 router.replace("/(tabs)");
@@ -166,8 +174,13 @@ export default function AuthScreen() {
 
                     {/* Guest Mode */}
                     <TouchableOpacity style={styles.guestButton} onPress={handleGuestMode}>
+                        <Ionicons name="person-outline" size={20} color="#6B7280" style={{ marginRight: 8 }} />
                         <Text style={styles.guestButtonText}>Continue as Guest</Text>
                     </TouchableOpacity>
+
+                    <Text style={styles.guestNote}>
+                        Guest mode lets you explore the app. Sign in later to save your data.
+                    </Text>
                 </KeyboardAvoidingView>
             </SafeAreaView>
         </LinearGradient>
@@ -271,16 +284,25 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     guestButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
         borderWidth: 1,
         borderColor: "#D1D5DB",
         borderRadius: 12,
         height: 56,
-        alignItems: "center",
-        justifyContent: "center",
+        backgroundColor: "#FFFFFF",
     },
     guestButtonText: {
-        color: "#6B7280",
+        color: "#374151",
         fontSize: 16,
         fontWeight: "500",
+    },
+    guestNote: {
+        textAlign: "center",
+        color: "#9CA3AF",
+        fontSize: 12,
+        marginTop: 12,
+        paddingHorizontal: 20,
     },
 });
