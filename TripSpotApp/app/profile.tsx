@@ -1,9 +1,42 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useAuth } from "../hooks/useAuth";
+import { useSpots } from "../hooks/useSpots";
+import { useTrips } from "../hooks/useTrips";
 
 export default function ProfileScreen() {
+    const { user, isGuest, signOut, loading } = useAuth();
+    const { spots } = useSpots();
+    const { trips } = useTrips();
+
+    const handleSignOut = async () => {
+        Alert.alert(
+            "Sign Out",
+            "Are you sure you want to sign out?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Sign Out",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await signOut();
+                            router.replace("/auth");
+                        } catch (error: any) {
+                            Alert.alert("Error", error.message);
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleSignIn = () => {
+        router.push("/auth");
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             {/* Header */}
@@ -19,28 +52,71 @@ export default function ProfileScreen() {
             <View style={styles.content}>
                 {/* Avatar */}
                 <View style={styles.avatar}>
-                    <Ionicons name="person" size={40} color="#6B7280" />
+                    {user?.user_metadata?.avatar_url ? (
+                        <Image
+                            source={{ uri: user.user_metadata.avatar_url }}
+                            style={styles.avatarImage}
+                        />
+                    ) : (
+                        <Ionicons name="person" size={40} color="#6B7280" />
+                    )}
                 </View>
 
                 {/* Name */}
-                <Text style={styles.name}>Guest User</Text>
-                <Text style={styles.subtitle}>Sign in to save your trips</Text>
+                <Text style={styles.name}>
+                    {isGuest ? "Guest User" : user?.user_metadata?.name || user?.email?.split("@")[0] || "User"}
+                </Text>
+                <Text style={styles.subtitle}>
+                    {isGuest ? "Sign in to save your trips" : user?.email}
+                </Text>
 
                 {/* Stats */}
                 <View style={styles.stats}>
                     <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>0</Text>
+                        <Text style={styles.statNumber}>{spots.length}</Text>
                         <Text style={styles.statLabel}>Spots</Text>
                     </View>
                     <View style={styles.statItem}>
-                        <Text style={styles.statNumber}>0</Text>
+                        <Text style={styles.statNumber}>{trips.length}</Text>
                         <Text style={styles.statLabel}>Trips</Text>
                     </View>
                 </View>
 
-                {/* Sign In Button */}
-                <TouchableOpacity style={styles.signInButton}>
-                    <Text style={styles.signInText}>Sign In</Text>
+                {/* Action Button */}
+                {isGuest || !user ? (
+                    <TouchableOpacity style={styles.signInButton} onPress={handleSignIn}>
+                        <Text style={styles.signInText}>Sign In</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <TouchableOpacity
+                        style={styles.signOutButton}
+                        onPress={handleSignOut}
+                        disabled={loading}
+                    >
+                        <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                        <Text style={styles.signOutText}>Sign Out</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            {/* Menu Items */}
+            <View style={styles.menu}>
+                <TouchableOpacity style={styles.menuItem}>
+                    <Ionicons name="heart-outline" size={24} color="#6B7280" />
+                    <Text style={styles.menuItemText}>Saved Spots</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem}>
+                    <Ionicons name="settings-outline" size={24} color="#6B7280" />
+                    <Text style={styles.menuItemText}>Settings</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem}>
+                    <Ionicons name="help-circle-outline" size={24} color="#6B7280" />
+                    <Text style={styles.menuItemText}>Help & Support</Text>
+                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
                 </TouchableOpacity>
             </View>
         </SafeAreaView>
@@ -67,7 +143,6 @@ const styles = StyleSheet.create({
         color: "#111827",
     },
     content: {
-        flex: 1,
         alignItems: "center",
         paddingTop: 32,
         paddingHorizontal: 20,
@@ -80,6 +155,11 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         marginBottom: 16,
+        overflow: "hidden",
+    },
+    avatarImage: {
+        width: "100%",
+        height: "100%",
     },
     name: {
         fontSize: 20,
@@ -94,8 +174,8 @@ const styles = StyleSheet.create({
     },
     stats: {
         flexDirection: "row",
-        gap: 32,
-        marginBottom: 32,
+        gap: 48,
+        marginBottom: 24,
     },
     statItem: {
         alignItems: "center",
@@ -118,5 +198,37 @@ const styles = StyleSheet.create({
     signInText: {
         color: "#FFFFFF",
         fontWeight: "600",
+    },
+    signOutButton: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: "#FEE2E2",
+        backgroundColor: "#FEF2F2",
+    },
+    signOutText: {
+        color: "#EF4444",
+        fontWeight: "600",
+    },
+    menu: {
+        marginTop: 32,
+        paddingHorizontal: 20,
+    },
+    menuItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: "#F3F4F6",
+    },
+    menuItemText: {
+        flex: 1,
+        marginLeft: 16,
+        fontSize: 16,
+        color: "#374151",
     },
 });
