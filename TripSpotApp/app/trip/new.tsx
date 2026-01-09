@@ -16,10 +16,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { countries, tripCategories, searchDestinations } from '../lib/tripData';
-import { generateSpots, generateItinerary, GeneratedSpot, TripPreferences } from '../lib/gemini';
-import { useAuth } from '../hooks/useAuth';
-import { useTrips } from '../hooks/useTrips';
+import { countries, tripCategories, searchDestinations } from '../../lib/tripData';
+import { generateSpots, generateItinerary, GeneratedSpot, TripPreferences } from '../../lib/gemini';
+import { useAuth } from '../../hooks/useAuth';
+import { useTrips } from '../../hooks/useTrips';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -277,42 +277,32 @@ export default function TripWizardScreen() {
     const renderDurationStep = () => (
         <View style={styles.stepContainer}>
             <View style={styles.durationHeader}>
-                <TouchableOpacity onPress={() => setStep('preferences')}>
+                <TouchableOpacity onPress={() => setStep('preferences')} style={styles.backButton}>
                     <Ionicons name="chevron-back" size={24} color="#1F2937" />
                 </TouchableOpacity>
-                <View style={styles.dateToggle}>
-                    <TouchableOpacity
-                        style={[styles.dateToggleOption, dateMode === 'dates' && styles.dateToggleActive]}
-                        onPress={() => setDateMode('dates')}
-                    >
-                        <Text style={dateMode === 'dates' ? styles.dateToggleTextActive : styles.dateToggleText}>Dates</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.dateToggleOption, dateMode === 'flexible' && styles.dateToggleActive]}
-                        onPress={() => setDateMode('flexible')}
-                    >
-                        <Text style={dateMode === 'flexible' ? styles.dateToggleTextActive : styles.dateToggleText}>Flexible</Text>
-                    </TouchableOpacity>
-                </View>
+                <Text style={styles.durationTitle}>How many days?</Text>
+                <View style={{ width: 40 }} />
             </View>
 
-            <Text style={styles.durationTitle}>How many days?</Text>
-
-            <View style={styles.dayPicker}>
-                {[1, 2, 3, 4, 5, 6, 7].map(day => (
+            <ScrollView
+                style={styles.dayPickerScroll}
+                contentContainerStyle={styles.dayPickerContent}
+                showsVerticalScrollIndicator={false}
+            >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map(day => (
                     <TouchableOpacity
                         key={day}
                         style={[styles.dayOption, tripDays === day && styles.dayOptionSelected]}
                         onPress={() => setTripDays(day)}
                     >
                         <Text style={[styles.dayText, tripDays === day && styles.dayTextSelected]}>
-                            {day}
+                            {day} {day === 1 ? 'day' : 'days'}
                         </Text>
                     </TouchableOpacity>
                 ))}
-            </View>
+            </ScrollView>
 
-            <View style={styles.bottomButton}>
+            <View style={styles.bottomButtonSafe}>
                 <TouchableOpacity
                     style={styles.confirmButton}
                     onPress={handleDurationConfirm}
@@ -330,7 +320,12 @@ export default function TripWizardScreen() {
             </View>
 
             {/* Category Filters */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.filterScroll}
+                contentContainerStyle={styles.filterScrollContent}
+            >
                 {['All', 'Attractions', 'Museum', 'Parks', 'Food'].map(filter => (
                     <TouchableOpacity
                         key={filter}
@@ -429,12 +424,14 @@ export default function TripWizardScreen() {
             style={styles.gradient}
         >
             <SafeAreaView style={styles.container}>
-                {/* Close Button */}
-                <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
-                    <View style={styles.closeButtonInner}>
-                        <Ionicons name="close" size={24} color="#1F2937" />
-                    </View>
-                </TouchableOpacity>
+                {/* Close Button - only on first step */}
+                {step === 'destination' && (
+                    <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
+                        <View style={styles.closeButtonInner}>
+                            <Ionicons name="close" size={24} color="#FFFFFF" />
+                        </View>
+                    </TouchableOpacity>
+                )}
 
                 {/* Render Current Step */}
                 {step === 'destination' && renderDestinationStep()}
@@ -628,8 +625,13 @@ const styles = StyleSheet.create({
         color: '#6B7280',
     },
     bottomButton: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
         padding: 20,
-        paddingBottom: 100,
+        paddingBottom: 40,
+        backgroundColor: 'transparent',
     },
     continueButton: {
         flexDirection: 'row',
@@ -651,60 +653,56 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 20,
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 8,
     },
-    dateToggle: {
-        flexDirection: 'row',
-        backgroundColor: '#F3F4F6',
-        borderRadius: 8,
-        padding: 4,
-    },
-    dateToggleOption: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 6,
-    },
-    dateToggleActive: {
-        backgroundColor: '#FFFFFF',
-    },
-    dateToggleText: {
-        color: '#6B7280',
-        fontSize: 14,
-    },
-    dateToggleTextActive: {
-        color: '#1F2937',
-        fontWeight: '500',
+    backButton: {
+        width: 40,
+        height: 40,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     durationTitle: {
-        fontSize: 32,
+        fontSize: 22,
         fontWeight: 'bold',
         color: '#1F2937',
-        paddingHorizontal: 20,
-        marginTop: 20,
     },
-    dayPicker: {
+    dayPickerScroll: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
+    },
+    dayPickerContent: {
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 20,
     },
     dayOption: {
-        width: SCREEN_WIDTH - 80,
-        paddingVertical: 20,
-        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 24,
         borderRadius: 16,
+        marginBottom: 8,
     },
     dayOptionSelected: {
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        backgroundColor: 'rgba(59, 130, 246, 0.15)',
     },
     dayText: {
-        fontSize: 32,
+        fontSize: 20,
         color: '#9CA3AF',
-        fontWeight: '300',
+        fontWeight: '400',
+        textAlign: 'center',
     },
     dayTextSelected: {
         color: '#1F2937',
         fontWeight: '600',
+    },
+    bottomButtonSafe: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 20,
+        paddingBottom: 40,
+        backgroundColor: 'transparent',
     },
     confirmButton: {
         backgroundColor: '#1F2937',
@@ -722,7 +720,8 @@ const styles = StyleSheet.create({
     discoverHeader: {
         paddingHorizontal: 20,
         paddingTop: 20,
-        paddingBottom: 16,
+        paddingBottom: 8,
+        backgroundColor: '#FFFFFF',
     },
     discoverTitle: {
         fontSize: 28,
@@ -732,6 +731,12 @@ const styles = StyleSheet.create({
     filterScroll: {
         paddingHorizontal: 20,
         marginBottom: 16,
+        backgroundColor: '#FFFFFF',
+        flexGrow: 0,
+        maxHeight: 44,
+    },
+    filterScrollContent: {
+        alignItems: 'center',
     },
     filterChip: {
         paddingHorizontal: 16,
@@ -740,6 +745,10 @@ const styles = StyleSheet.create({
         marginRight: 8,
         borderWidth: 1,
         borderColor: '#E5E7EB',
+        backgroundColor: '#FFFFFF',
+        height: 36,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     filterChipActive: {
         backgroundColor: '#1F2937',
@@ -764,45 +773,48 @@ const styles = StyleSheet.create({
     },
     citySection: {
         paddingHorizontal: 20,
-        marginBottom: 8,
+        paddingVertical: 12,
+        backgroundColor: '#FFFFFF',
     },
     cityHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 10,
     },
     cityDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#9CA3AF',
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#D1D5DB',
     },
     cityName: {
         flex: 1,
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '600',
         color: '#1F2937',
     },
     spotsList: {
         flex: 1,
-        paddingHorizontal: 20,
+        backgroundColor: '#FFFFFF',
     },
     spotItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 20,
         gap: 12,
+        backgroundColor: '#FFFFFF',
     },
     spotNumber: {
         fontSize: 14,
         color: '#9CA3AF',
-        width: 20,
+        width: 24,
     },
     spotImage: {
-        width: 56,
-        height: 56,
+        width: 60,
+        height: 60,
         borderRadius: 8,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: '#F3F4F6',
     },
     spotInfo: {
         flex: 1,
@@ -831,9 +843,14 @@ const styles = StyleSheet.create({
         borderColor: '#3B82F6',
     },
     discoverButtons: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
         padding: 20,
-        paddingBottom: 100,
+        paddingBottom: 40,
         gap: 12,
+        backgroundColor: '#FFFFFF',
     },
     continueWithSpotsButton: {
         backgroundColor: '#1F2937',
@@ -855,3 +872,4 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
 });
+

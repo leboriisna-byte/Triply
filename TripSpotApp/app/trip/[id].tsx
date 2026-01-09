@@ -8,6 +8,7 @@ import {
     Dimensions,
     ActivityIndicator,
     Image,
+    Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,7 +35,7 @@ export default function TripPlannerScreen() {
         newTrip?: string;
         spotsJson?: string;
     }>();
-    const { fetchTripWithStops, trips } = useTrips();
+    const { fetchTripWithStops, trips, deleteTrip } = useTrips();
     const [trip, setTrip] = useState<Trip | null>(null);
     const [loading, setLoading] = useState(true);
     const [showAIPrompt, setShowAIPrompt] = useState(false);
@@ -72,13 +73,15 @@ export default function TripPlannerScreen() {
     };
 
     const handlePlanForMe = async () => {
-        if (!trip || spots.length === 0) return;
+        if (spots.length === 0) return;
 
         setGeneratingItinerary(true);
         setShowAIPrompt(false);
 
         try {
-            const generated = await generateItinerary(trip.destination, spots, trip.duration_days);
+            const destination = trip?.destination || 'Trip';
+            const days = trip?.duration_days || 3;
+            const generated = await generateItinerary(destination, spots, days);
             setItinerary(generated);
 
             // Fit map to show all spots
@@ -91,6 +94,17 @@ export default function TripPlannerScreen() {
             }
         } catch (error) {
             console.error('Failed to generate itinerary:', error);
+            // Fallback - just distribute spots evenly
+            const days = trip?.duration_days || 3;
+            const spotsPerDay = Math.ceil(spots.length / days);
+            const fallback = [];
+            for (let d = 0; d < days; d++) {
+                fallback.push({
+                    day: d + 1,
+                    spots: spots.slice(d * spotsPerDay, (d + 1) * spotsPerDay),
+                });
+            }
+            setItinerary(fallback);
         } finally {
             setGeneratingItinerary(false);
         }
@@ -104,6 +118,31 @@ export default function TripPlannerScreen() {
             emptyItinerary.push({ day: i, spots: [] });
         }
         setItinerary(emptyItinerary);
+    };
+
+    const handleDeleteTrip = () => {
+        Alert.alert(
+            'Delete Trip',
+            'Are you sure you want to delete this trip? This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            if (id) {
+                                await deleteTrip(id);
+                            }
+                            router.back();
+                        } catch (error) {
+                            console.error('Failed to delete trip:', error);
+                            Alert.alert('Error', 'Failed to delete trip');
+                        }
+                    },
+                },
+            ]
+        );
     };
 
     const getMapRegion = () => {
@@ -203,10 +242,11 @@ export default function TripPlannerScreen() {
                             </View>
                         ))}
                     </View>
-                    <TouchableOpacity style={styles.editButton}>
-                        <Ionicons name="pencil" size={16} color="#3B82F6" />
-                        <Text style={styles.editText}>Edit</Text>
-                    </TouchableOpacity>
+                    <View style={styles.headerButtons}>
+                        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteTrip}>
+                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
 
@@ -466,6 +506,23 @@ const styles = StyleSheet.create({
     editText: {
         color: '#3B82F6',
         fontWeight: '500',
+    },
+    headerButtons: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    deleteButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
     },
     markerContainer: {
         width: 28,
