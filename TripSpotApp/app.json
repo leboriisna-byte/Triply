@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "TripSpot",
+    "slug": "tripspot",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "tripspot",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#E8F4FC"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tripspot.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#E8F4FC"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.tripspot.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": "1",
+        "title": "Project Setup and Foundation",
+        "description": "Initialize React Native project with Expo managed workflow, configure Expo Router for file-based navigation, and set up NativeWind for styling",
+        "details": "1. Run `npx create-expo-app TripSpot --template blank-typescript`\n2. Install dependencies: `expo install expo-router react-native-safe-area-context react-native-screens expo-linking expo-constants expo-status-bar`\n3. Configure app.json with expo-router scheme\n4. Install NativeWind: `npm install nativewind tailwindcss react-native-reanimated`\n5. Create tailwind.config.js and configure babel.config.js\n6. Set up app/_layout.tsx as root layout with Stack navigator\n7. Create (tabs)/_layout.tsx with bottom tab navigation\n8. Configure light blue gradient background (#E8F4FC to white) in root layout",
+        "testStrategy": "Verify app builds and runs on iOS simulator, test hot reload functionality, confirm NativeWind classes render correctly, validate tab navigation structure",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-09T16:08:40.544Z"
+      },
+      {
+        "id": "2",
+        "title": "Custom Tab Navigation with FAB",
+        "description": "Implement custom bottom tab navigation with 3 tabs (Trips, Add, Map) featuring a center circular FAB button and pill-shaped container design",
+        "details": "1. Create custom TabBar component with white pill-shaped container (rounded corners)\n2. Implement 3 tabs: index.tsx (Trips with suitcase icon), map.tsx (Map with map icon)\n3. Create center FAB as black circular button with + icon\n4. Use react-native-vector-icons or Expo Icons for tab icons\n5. Handle FAB press to open AddModal\n6. Style active/inactive tab states\n7. Position tab bar with proper safe area handling",
+        "testStrategy": "Test tab switching functionality, verify FAB button triggers modal, confirm pill-shaped styling matches design, test on different screen sizes",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "done",
+        "subtasks": [],
+        "updatedAt": "2026-01-09T16:31:22.758Z"
+      },
+      {
+        "id": "3",
+        "title": "Supabase Backend Setup",
+        "description": "Configure Supabase project with authentication, database schema, and client integration for users, spots, trips, and travel guides",
+        "details": "1. Create Supabase project and obtain API keys\n2. Install Supabase client: `npm install @supabase/supabase-js`\n3. Create lib/supabase.ts with client configuration\n4. Set up database tables:\n   - users (id uuid, email text unique, name text, avatar_url text, bio text, created_at timestamp)\n   - spots (id uuid, user_id uuid FK, name text, lat float, lng float, address text, country text, category enum, description text, image_url text, rating float, review_count int, source_url text, source_platform enum, created_at timestamp)\n   - trips (id uuid, user_id uuid FK, name text, destination text, cover_image_url text, start_date date, end_date date, duration_days int, share_token text unique, is_public boolean, created_at timestamp)\n   - trip_stops (id uuid, trip_id uuid FK, spot_id uuid FK, day_number int, order_in_day int, notes text, scheduled_time time)\n   - travel_guides (id uuid, city text, country text, name text, cover_image_url text, spot_count int, is_featured boolean)\n5. Configure Row Level Security (RLS) policies\n6. Set up environment variables in .env",
+        "testStrategy": "Test database connection, verify table creation and relationships, test RLS policies with sample data, confirm environment variables load correctly",
+        "priority": "high",
+        "dependencies": [
+          "1"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "4",
+        "title": "Authentication System",
+        "description": "Implement user authentication with email/password signup/login and Apple Sign In integration using Supabase Auth",
+        "details": "1. Install Apple Sign In: `expo install expo-apple-authentication expo-crypto`\n2. Create hooks/useAuth.ts with auth state management\n3. Implement email/password auth functions (signUp, signIn, signOut)\n4. Configure Apple Sign In with proper scopes and nonce generation\n5. Create auth screens with form validation\n6. Implement guest mode functionality\n7. Set up auth state persistence and automatic session refresh\n8. Create user profile creation flow\n9. Handle auth errors and loading states",
+        "testStrategy": "Test email signup/login flow, verify Apple Sign In integration, test guest mode functionality, confirm auth state persistence across app restarts, validate error handling",
+        "priority": "high",
+        "dependencies": [
+          "3"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "5",
+        "title": "Home Screen with Travel Guides",
+        "description": "Build the main Trips tab screen with header, travel guides horizontal scroll, and user trips list with proper empty states",
+        "details": "1. Create app/(tabs)/index.tsx as home screen\n2. Implement header with 'TripSpot' logo (bold text with playful underline) and profile avatar\n3. Create GuideCard.tsx component for travel guide cards\n4. Implement horizontal ScrollView for travel guides section\n5. Create TripCard.tsx component for user trips\n6. Implement vertical FlatList for 'My Trips' section\n7. Design empty state with mascot illustration and 'Start new trip' CTA\n8. Add pull-to-refresh functionality\n9. Integrate with Supabase to fetch user trips and featured guides\n10. Handle loading and error states",
+        "testStrategy": "Test horizontal scrolling of guide cards, verify trip list rendering, test empty state display, confirm pull-to-refresh works, validate data loading from Supabase",
+        "priority": "medium",
+        "dependencies": [
+          "2",
+          "4"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "6",
+        "title": "Add Modal Component",
+        "description": "Create the modal that opens when tapping the center + button, featuring 3 action buttons with proper styling and animations",
+        "details": "1. Create components/AddModal.tsx with modal overlay\n2. Implement dimmed background overlay\n3. Create 3 stacked action buttons:\n   - 'New trip' (black background, white text, airplane/map illustration)\n   - 'Find trip' (light blue background, magnifying glass illustration)\n   - 'Add spots' (white background, location pin illustration)\n4. Style buttons with 100px height and 20px border radius\n5. Add circular X close button at bottom\n6. Implement modal animations (slide up/down)\n7. Handle button press actions to navigate to respective screens\n8. Add proper accessibility labels",
+        "testStrategy": "Test modal open/close animations, verify button styling matches design, test navigation from each button, confirm accessibility features work",
+        "priority": "medium",
+        "dependencies": [
+          "2"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "7",
+        "title": "Map Screen with Apple Maps",
+        "description": "Implement the map screen using React Native Maps with Apple Maps provider, including spot clustering and bottom sheet integration",
+        "details": "1. Install React Native Maps: `npm install react-native-maps`\n2. Configure Apple Maps provider in app.json\n3. Create app/(tabs)/map.tsx with full-screen map (60% of screen)\n4. Install bottom sheet: `npm install @gorhom/bottom-sheet react-native-reanimated react-native-gesture-handler`\n5. Implement country/region clustering with black pill badges (flag emoji, name, spot count)\n6. Create SpotMarker.tsx component with category emoji icons\n7. Implement BottomSheet.tsx component with:\n   - 'My Spots' title and spot count\n   - 'Import Guides' button\n   - Expandable spot list grouped by country/region\n8. Handle map region changes and marker clustering logic\n9. Integrate with spots data from Supabase",
+        "testStrategy": "Test map rendering and interaction, verify clustering behavior at different zoom levels, test bottom sheet drag functionality, confirm spot markers display correctly",
+        "priority": "medium",
+        "dependencies": [
+          "2",
+          "3"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "8",
+        "title": "Claude AI Integration for Location Extraction",
+        "description": "Integrate Claude API to extract location information from TikTok/Instagram captions and URLs with proper error handling",
+        "details": "1. Install HTTP client: `npm install axios`\n2. Create lib/claude.ts with Claude API integration\n3. Design prompt engineering for location extraction from social media captions\n4. Implement function to parse video URLs and extract caption text\n5. Create structured response format for extracted locations (name, description, category)\n6. Add error handling for API failures and rate limiting\n7. Implement retry logic with exponential backoff\n8. Add validation for extracted location data\n9. Store Claude API key in environment variables\n10. Create mock responses for development/testing",
+        "testStrategy": "Test location extraction with various caption formats, verify API error handling, test rate limiting behavior, validate extracted data structure and accuracy",
+        "priority": "medium",
+        "dependencies": [
+          "3"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "9",
+        "title": "Import Flow Implementation",
+        "description": "Build the complete import flow with URL input, AI processing, and location selection screens with proper loading states",
+        "details": "1. Create app/import.tsx with multi-step flow\n2. Implement URL/caption input screen with validation\n3. Create detecting screen with:\n   - 'Detecting...' text with animated scanning line\n   - Floating category emoji icons animation\n   - Progress bar component\n   - Background processing option\n4. Build results screen with:\n   - Video thumbnail and title display\n   - Platform badge (TikTok/Instagram)\n   - Selectable location list with checkboxes\n   - 'Save X spots' action button\n5. Integrate geocoding for location coordinates\n6. Implement spot saving to Supabase\n7. Add proper navigation flow between steps\n8. Handle various error states and edge cases",
+        "testStrategy": "Test complete import flow from URL input to spot saving, verify loading animations, test location selection and saving, confirm error handling for invalid URLs",
+        "priority": "medium",
+        "dependencies": [
+          "6",
+          "8"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "10",
+        "title": "Spot Details Modal and Management",
+        "description": "Create spot details modal with comprehensive information display and CRUD operations for saved spots",
+        "details": "1. Create app/spot/[id].tsx as modal route\n2. Implement spot details layout:\n   - Large photo at top\n   - Location name, star rating, review count\n   - Category tag with emoji\n   - 'About this place' description\n   - 'Community Notes' section (yellow background)\n   - 'Save' and 'Directions' action buttons\n3. Create hooks/useSpots.ts for CRUD operations\n4. Implement spot saving/unsaving functionality\n5. Add directions integration with Apple Maps\n6. Create SpotListItem.tsx component for list views\n7. Implement spot deletion with confirmation\n8. Add image loading and error states",
+        "testStrategy": "Test spot modal opening from map and lists, verify all spot information displays correctly, test save/unsave functionality, confirm directions integration works",
+        "priority": "medium",
+        "dependencies": [
+          "7",
+          "9"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "11",
+        "title": "Trip Creation and Planning Flow",
+        "description": "Implement comprehensive trip creation flow with destination selection, duration setting, spot selection, and AI enhancement options",
+        "details": "1. Create app/trip/new.tsx for trip creation flow\n2. Implement destination selection with search functionality\n3. Add trip duration picker (number of days)\n4. Create spot selection interface grouped by region\n5. Implement 'Enhance' option for AI-suggested spots\n6. Add 'Yes, plan for me!' vs 'No, I'll plan myself' options\n7. Create hooks/useTrips.ts for trip CRUD operations\n8. Implement trip saving to Supabase with proper relationships\n9. Add form validation and error handling\n10. Create trip cover image selection/generation",
+        "testStrategy": "Test complete trip creation flow, verify spot selection and grouping, test AI enhancement integration, confirm trip data saves correctly to database",
+        "priority": "medium",
+        "dependencies": [
+          "10"
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": "12",
+        "title": "Trip Planner with Route Optimization",
+        "description": "Build the main trip planner view with interactive map, itinerary management, route optimization, and sharing functionality",
+        "details": "1. Create app/trip/[id].tsx for trip planner view\n2. Implement map with numbered pins and colored polylines per day\n3. Create bottom sheet with:\n   - Editable trip name and share button\n   - Duration display and date picker\n   - Segmented tabs (Overview | Itinerary)\n4. Build Overview tab with day summaries and route previews\n5. Implement Itinerary tab with:\n   - Horizontal scrolling day tabs\n   - 'Optimize' button per day\n   - Drag-to-reorder stop functionality\n   - Travel time calculations\n   - '+ Add a place' functionality\n6. Create lib/routing.ts for route optimization algorithms\n7. Implement trip sharing with unique tokens\n8. Add directions integration for individual stops\n9. Create app/shared/[token].tsx for public trip viewing",
+        "testStrategy": "Test trip planner map interactions, verify drag-to-reorder functionality, test route optimization accuracy, confirm sharing links work correctly, validate public trip viewing",
+        "priority": "high",
+        "dependencies": [
+          "11"
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "version": "1.0.0",
+      "lastModified": "2026-01-09T16:31:22.759Z",
+      "taskCount": 12,
+      "completedCount": 2,
+      "tags": [
+        "master"
+      ]
+    }
+  }
+}
