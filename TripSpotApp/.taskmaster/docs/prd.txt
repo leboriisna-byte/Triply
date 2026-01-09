@@ -1,0 +1,293 @@
+# TripSpot - Travel Planning App PRD
+
+## Project Overview
+TripSpot is a free travel planning mobile app (iOS first) that lets users import locations from TikTok and Instagram videos, visualize them on a map, and generate optimized day-by-day trip itineraries. It's a Roamy clone built with React Native + Expo.
+
+## Tech Stack
+- React Native with Expo (managed workflow initially)
+- Expo Router for file-based navigation
+- React Native Maps with Apple Maps provider
+- NativeWind (Tailwind CSS for React Native)
+- Supabase for backend (auth, database, storage)
+- Claude API for AI location extraction
+- @gorhom/bottom-sheet for iOS-style bottom sheets
+
+## Core Features
+
+### 1. Authentication
+- Sign up / Sign in with email
+- OAuth with Apple Sign In
+- User profile with avatar, name, bio
+- Guest mode for trying the app without account
+
+### 2. Bottom Tab Navigation
+- 3 tabs: Trips (suitcase icon), Add (+), Map (map icon)
+- Center + button is a black circular FAB that opens modal
+- Tab bar is a white pill-shaped container with rounded corners
+- Light blue gradient background throughout app (#E8F4FC to white)
+
+### 3. Home Screen (Trips Tab)
+- Header with "TripSpot" logo (bold text with playful underline) and profile avatar
+- "Travel Guides" section with horizontal scrolling city guide cards
+- Each guide card shows: background image, city name with pin icon, trip name, spot count
+- "My Trips" section with vertical list of user-created trips
+- Each trip card shows: thumbnail, trip name (blue), duration, spot count
+- Empty state with mascot illustration and "Start new trip" CTA
+
+### 4. Add Modal
+- Triggered by tapping center + tab button
+- Dimmed overlay background
+- 3 stacked action buttons:
+  - "New trip" - black background, white text, airplane/map illustration
+  - "Find trip" - light blue background, magnifying glass illustration
+  - "Add spots" - white background, location pin illustration
+- Circular X close button at bottom
+- Buttons are large (100px height) with 20px border radius
+
+### 5. Map Screen
+- Full-screen Apple Maps taking top 60% of screen
+- Country/region clusters shown as black pill badges with flag emoji, name, spot count
+- When zoomed in, show individual spot pins with category emoji icons
+- Bottom sheet (draggable) showing:
+  - "My Spots" title + "X Spots Saved" count
+  - "Import Guides" black button
+  - List of spots grouped by country/region when expanded
+
+### 6. Import Flow
+- Input screen: paste TikTok/Instagram URL or caption text
+- Detecting screen (loading state):
+  - "Detecting..." text with animated scanning line
+  - Floating category emoji icons (coffee, bed, picture)
+  - Progress bar
+  - "Don't want to wait? Will save in background" option
+- Results screen:
+  - "Import Locations" header with X close
+  - Video thumbnail + title + "Saved from TikTok/Instagram" badge
+  - List of extracted locations with: number, image/icon, name, description, checkbox
+  - "Save X spots" button at bottom
+- Integration with Claude API to extract location names from caption text
+- Geocoding with Mapbox or Google Places API
+
+### 7. Spot Details
+- Modal view when tapping a spot
+- Large photo at top
+- Location name, star rating, review count
+- Category tag with emoji (Cafe, Restaurant, Attractions, Hotel, Bar)
+- "About this place" description
+- "Community Notes" section (yellow background) with user tips
+- "Save" and "Direction" action buttons
+
+### 8. Trip Creation Flow
+- Select destination (search or pick from saved spots country)
+- Set trip duration (number of days)
+- Choose spots to include (from saved spots, grouped by region)
+- "Enhance" option to add AI-suggested spots
+- Option: "Yes, plan for me!" or "No, I'll plan myself"
+
+### 9. Trip Planner View
+- Map showing all trip spots as numbered pins
+- Colored polylines connecting stops (different color per day)
+- Bottom sheet with:
+  - Editable trip name + Share button
+  - Duration display + "Choose dates" link
+  - Segmented tabs: Overview | Itinerary
+- Overview tab: Day summaries with route preview
+- Itinerary tab:
+  - Horizontal scrolling day tabs (Day 1, Day 2, etc.)
+  - "Optimize" button per day (reorders for shortest route)
+  - Stop list with: number, thumbnail, name, category, travel time, Directions button
+  - Drag-to-reorder functionality
+  - "+ Add a place" at bottom of each day
+
+### 10. Route Optimization
+- Calculate optimal order of stops per day
+- Show travel time and distance between stops
+- Support for driving and walking modes
+- "Directions" button opens Apple Maps with route
+
+### 11. Trip Sharing
+- Generate shareable link for any trip
+- View-only mode for shared trips (no account required)
+- Share button opens iOS share sheet
+
+### 12. User Profile
+- Profile picture, name, bio
+- Stats: Saved spots count, Trips count
+- Import History showing past imports
+- Links: Contact, Community, Review, Share app
+
+## Database Schema
+
+### users
+- id (uuid, primary key)
+- email (text, unique)
+- name (text)
+- avatar_url (text)
+- bio (text)
+- created_at (timestamp)
+
+### spots
+- id (uuid, primary key)
+- user_id (uuid, foreign key)
+- name (text)
+- lat (float)
+- lng (float)
+- address (text)
+- country (text)
+- category (enum: cafe, restaurant, attraction, hotel, bar, other)
+- description (text)
+- image_url (text)
+- rating (float)
+- review_count (integer)
+- source_url (text)
+- source_platform (enum: tiktok, instagram, manual)
+- created_at (timestamp)
+
+### trips
+- id (uuid, primary key)
+- user_id (uuid, foreign key)
+- name (text)
+- destination (text)
+- cover_image_url (text)
+- start_date (date)
+- end_date (date)
+- duration_days (integer)
+- share_token (text, unique)
+- is_public (boolean)
+- created_at (timestamp)
+
+### trip_stops
+- id (uuid, primary key)
+- trip_id (uuid, foreign key)
+- spot_id (uuid, foreign key)
+- day_number (integer)
+- order_in_day (integer)
+- notes (text)
+- scheduled_time (time)
+
+### travel_guides
+- id (uuid, primary key)
+- city (text)
+- country (text)
+- name (text)
+- cover_image_url (text)
+- spot_count (integer)
+- is_featured (boolean)
+
+## API Endpoints
+
+### Auth
+- POST /auth/signup
+- POST /auth/login
+- POST /auth/apple
+- GET /auth/me
+
+### Spots
+- GET /spots - list user's saved spots
+- POST /spots - create new spot
+- GET /spots/:id - get spot details
+- DELETE /spots/:id - delete spot
+- POST /spots/import - extract and save spots from URL/caption
+
+### Trips
+- GET /trips - list user's trips
+- POST /trips - create new trip
+- GET /trips/:id - get trip with stops
+- PUT /trips/:id - update trip
+- DELETE /trips/:id - delete trip
+- POST /trips/:id/generate - AI generate itinerary
+- POST /trips/:id/optimize/:day - optimize day's route
+- GET /trips/shared/:token - get shared trip (public)
+
+### Guides
+- GET /guides - list featured travel guides
+- GET /guides/:id - get guide details with spots
+
+## File Structure
+```
+app/
+├── (tabs)/
+│   ├── index.tsx          # Home/Trips screen
+│   ├── map.tsx            # Map screen
+│   └── _layout.tsx        # Tab layout
+├── trip/
+│   ├── [id].tsx           # Trip planner view
+│   └── new.tsx            # Create trip flow
+├── import.tsx             # Import flow
+├── spot/[id].tsx          # Spot details modal
+├── profile.tsx            # User profile
+├── shared/[token].tsx     # Shared trip view
+└── _layout.tsx            # Root layout
+
+components/
+├── AddModal.tsx           # + button modal
+├── TripCard.tsx           # Trip list card
+├── GuideCard.tsx          # Travel guide card
+├── SpotListItem.tsx       # Spot in list
+├── SpotMarker.tsx         # Map pin
+├── DayTab.tsx             # Day selector tab
+├── StopCard.tsx           # Stop in itinerary
+└── BottomSheet.tsx        # Reusable bottom sheet
+
+lib/
+├── supabase.ts            # Supabase client
+├── claude.ts              # Claude API for extraction
+├── geocoding.ts           # Geocoding utilities
+├── routing.ts             # Route optimization
+└── types.ts               # TypeScript types
+
+hooks/
+├── useSpots.ts            # Spots CRUD hooks
+├── useTrips.ts            # Trips CRUD hooks
+├── useAuth.ts             # Auth hooks
+└── useLocation.ts         # Location/map hooks
+```
+
+## Development Phases
+
+### Phase 1: Foundation (Week 1)
+- Project setup with Expo + Expo Router
+- Tab navigation with custom + button modal
+- Basic styling with NativeWind
+- Home screen UI (static/mock data)
+- Map screen with Apple Maps
+
+### Phase 2: Core Features (Week 2)
+- Supabase setup (auth, database)
+- User authentication (email + Apple Sign In)
+- Spots CRUD operations
+- Import flow UI (without AI extraction)
+- Spot details modal
+
+### Phase 3: AI Integration (Week 3)
+- Claude API integration for location extraction
+- Geocoding integration (Mapbox/Google Places)
+- Import flow with real extraction
+- Spot categorization
+
+### Phase 4: Trip Planning (Week 4)
+- Trip creation flow
+- Trip planner view with map
+- Day-by-day itinerary
+- Drag-to-reorder stops
+- Route optimization
+
+### Phase 5: Polish & Launch (Week 5)
+- Trip sharing functionality
+- Travel guides (curated content)
+- Profile screen
+- App Store assets and submission
+- Bug fixes and performance optimization
+
+## Success Metrics
+- Location extraction accuracy > 85%
+- App Store approval within 2 weeks
+- 100 beta users in first month
+- 4+ star rating
+
+## Out of Scope (v1)
+- Android version
+- Real-time collaboration
+- Booking integrations
+- Offline mode
+- Push notifications
