@@ -1,60 +1,48 @@
-import { Stack } from "expo-router";
+import { useEffect } from "react";
+import { Slot, router, useSegments, useRootNavigationState } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { View } from "react-native";
-import { AuthProvider } from "../hooks/useAuth";
+import { View, ActivityIndicator } from "react-native";
+import { AuthProvider, useAuth } from "../hooks/useAuth";
+
+function InitialLayout() {
+    const { user, loading, isGuest } = useAuth();
+    const segments = useSegments();
+    const navigationState = useRootNavigationState();
+
+    useEffect(() => {
+        // Wait for navigation to be ready
+        if (!navigationState?.key) return;
+        if (loading) return;
+
+        const inAuthGroup = segments[0] === "auth";
+        const isAuthenticated = user || isGuest;
+
+        if (!isAuthenticated && !inAuthGroup) {
+            // Not logged in and not on auth screen - redirect to auth
+            router.replace("/auth");
+        } else if (isAuthenticated && inAuthGroup) {
+            // Logged in but on auth screen - redirect to home
+            router.replace("/(tabs)");
+        }
+    }, [user, isGuest, segments, navigationState?.key, loading]);
+
+    if (loading) {
+        return (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#E8F4FC" }}>
+                <ActivityIndicator size="large" color="#3B82F6" />
+            </View>
+        );
+    }
+
+    return <Slot />;
+}
 
 export default function RootLayout() {
     return (
         <AuthProvider>
             <View style={{ flex: 1 }}>
                 <StatusBar style="dark" />
-                <Stack
-                    screenOptions={{
-                        headerShown: false,
-                        contentStyle: { backgroundColor: "transparent" },
-                    }}
-                >
-                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                    <Stack.Screen
-                        name="auth"
-                        options={{
-                            headerShown: false,
-                        }}
-                    />
-                    <Stack.Screen
-                        name="import"
-                        options={{
-                            presentation: "modal",
-                            headerShown: false,
-                        }}
-                    />
-                    <Stack.Screen
-                        name="spot/[id]"
-                        options={{
-                            presentation: "modal",
-                            headerShown: false,
-                        }}
-                    />
-                    <Stack.Screen
-                        name="trip/[id]"
-                        options={{
-                            headerShown: false,
-                        }}
-                    />
-                    <Stack.Screen
-                        name="trip/new"
-                        options={{
-                            presentation: "modal",
-                            headerShown: false,
-                        }}
-                    />
-                    <Stack.Screen
-                        name="profile"
-                        options={{
-                            headerShown: false,
-                        }}
-                    />
-                </Stack>
+                <InitialLayout />
             </View>
         </AuthProvider>
     );
