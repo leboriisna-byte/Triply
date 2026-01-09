@@ -1,46 +1,37 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-
-// Mock data for travel guides
-const travelGuides = [
-    {
-        id: "1",
-        city: "Paris",
-        country: "France",
-        name: "Hidden Gems of Paris",
-        spotCount: 12,
-        image: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=400",
-    },
-    {
-        id: "2",
-        city: "Tokyo",
-        country: "Japan",
-        name: "Best Cafes in Tokyo",
-        spotCount: 8,
-        image: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400",
-    },
-    {
-        id: "3",
-        city: "Barcelona",
-        country: "Spain",
-        name: "Barcelona Food Tour",
-        spotCount: 15,
-        image: "https://images.unsplash.com/photo-1583422409516-2895a77efded?w=400",
-    },
-];
-
-// Mock data for user trips
-const myTrips: any[] = [];
+import { useState, useCallback } from "react";
+import { useTravelGuides } from "../../hooks/useTravelGuides";
+import { useTrips } from "../../hooks/useTrips";
+import { useAuth } from "../../hooks/useAuth";
 
 export default function HomeScreen() {
+    const { guides, loading: guidesLoading, fetchGuides } = useTravelGuides();
+    const { trips, loading: tripsLoading, fetchTrips } = useTrips();
+    const { user, isGuest } = useAuth();
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await Promise.all([fetchGuides(true), fetchTrips()]);
+        setRefreshing(false);
+    }, []);
+
+    const handleProfilePress = () => {
+        router.push("/profile");
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={["top"]}>
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                }
             >
                 {/* Header */}
                 <View style={styles.header}>
@@ -52,7 +43,7 @@ export default function HomeScreen() {
                     </View>
                     <TouchableOpacity
                         style={styles.profileButton}
-                        onPress={() => router.push("/profile")}
+                        onPress={handleProfilePress}
                     >
                         <Ionicons name="person" size={20} color="#6B7280" />
                     </TouchableOpacity>
@@ -66,14 +57,14 @@ export default function HomeScreen() {
                         showsHorizontalScrollIndicator={false}
                         style={styles.guidesScroll}
                     >
-                        {travelGuides.map((guide) => (
+                        {guides.map((guide) => (
                             <TouchableOpacity
                                 key={guide.id}
                                 style={styles.guideCard}
                                 activeOpacity={0.8}
                             >
                                 <Image
-                                    source={{ uri: guide.image }}
+                                    source={{ uri: guide.cover_image_url || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400" }}
                                     style={styles.guideImage}
                                     resizeMode="cover"
                                 />
@@ -86,7 +77,7 @@ export default function HomeScreen() {
                                     <Text style={styles.guideName} numberOfLines={2}>
                                         {guide.name}
                                     </Text>
-                                    <Text style={styles.guideSpots}>{guide.spotCount} spots</Text>
+                                    <Text style={styles.guideSpots}>{guide.spot_count} spots</Text>
                                 </View>
                             </TouchableOpacity>
                         ))}
@@ -97,7 +88,7 @@ export default function HomeScreen() {
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>My Trips</Text>
 
-                    {myTrips.length === 0 ? (
+                    {trips.length === 0 ? (
                         // Empty State
                         <View style={styles.emptyState}>
                             <View style={styles.emptyIcon}>
@@ -107,27 +98,31 @@ export default function HomeScreen() {
                             <Text style={styles.emptySubtitle}>
                                 Start planning your next adventure!
                             </Text>
-                            <TouchableOpacity style={styles.startButton}>
+                            <TouchableOpacity
+                                style={styles.startButton}
+                                onPress={() => router.push("/trip/new")}
+                            >
                                 <Text style={styles.startButtonText}>Start new trip</Text>
                             </TouchableOpacity>
                         </View>
                     ) : (
                         // Trip Cards
-                        myTrips.map((trip) => (
+                        trips.map((trip) => (
                             <TouchableOpacity
                                 key={trip.id}
                                 style={styles.tripCard}
                                 activeOpacity={0.8}
+                                onPress={() => router.push(`/trip/${trip.id}`)}
                             >
                                 <Image
-                                    source={{ uri: trip.image }}
+                                    source={{ uri: trip.cover_image_url || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=200" }}
                                     style={styles.tripImage}
                                     resizeMode="cover"
                                 />
                                 <View style={styles.tripContent}>
                                     <Text style={styles.tripName}>{trip.name}</Text>
                                     <Text style={styles.tripMeta}>
-                                        {trip.duration} days • {trip.spotCount} spots
+                                        {trip.duration_days} days • {trip.destination}
                                     </Text>
                                 </View>
                                 <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
