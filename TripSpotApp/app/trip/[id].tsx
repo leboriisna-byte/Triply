@@ -35,7 +35,7 @@ export default function TripPlannerScreen() {
         newTrip?: string;
         spotsJson?: string;
     }>();
-    const { fetchTripWithStops, trips, deleteTrip } = useTrips();
+    const { fetchTripWithStops, trips, deleteTrip, saveTripItinerary } = useTrips();
     const [trip, setTrip] = useState<Trip | null>(null);
     const [loading, setLoading] = useState(true);
     const [showAIPrompt, setShowAIPrompt] = useState(false);
@@ -43,6 +43,7 @@ export default function TripPlannerScreen() {
     const [spots, setSpots] = useState<GeneratedSpot[]>([]);
     const [activeTab, setActiveTab] = useState<'overview' | 'itinerary'>('overview');
     const [generatingItinerary, setGeneratingItinerary] = useState(false);
+    const [selectedDay, setSelectedDay] = useState<number | null>(null); // null = show all days
     const mapRef = useRef<MapView>(null);
 
     useEffect(() => {
@@ -50,23 +51,84 @@ export default function TripPlannerScreen() {
     }, [id]);
 
     const loadTrip = async () => {
+        if (!id) return;
+
         setLoading(true);
+        console.log('=== Loading Trip ===');
+        console.log('Trip ID:', id);
 
-        // Check if this is a new trip with spots
-        if (newTrip === 'true' && spotsJson) {
-            try {
-                const parsedSpots: GeneratedSpot[] = JSON.parse(spotsJson);
-                setSpots(parsedSpots);
-                setShowAIPrompt(parsedSpots.length > 0);
-            } catch (e) {
-                console.error('Failed to parse spots:', e);
+        try {
+            // Always fetch trip with stops directly from database
+            console.log('Fetching trip with stops from database...');
+            const tripWithStops = await fetchTripWithStops(id);
+
+            if (!tripWithStops) {
+                console.log('Trip not found in database');
+                setLoading(false);
+                return;
             }
-        }
 
-        // Find trip from state or fetch
-        const foundTrip = trips.find(t => t.id === id);
-        if (foundTrip) {
-            setTrip(foundTrip);
+            console.log('Trip found:', tripWithStops.name);
+            setTrip(tripWithStops);
+            console.log('Trip with stops result:', tripWithStops.stops?.length || 0, 'stops');
+
+            if (tripWithStops.stops && tripWithStops.stops.length > 0) {
+                // Convert stops to itinerary format
+                const stopsGroupedByDay: { [key: number]: GeneratedSpot[] } = {};
+
+                for (const stop of tripWithStops.stops) {
+                    const dayNum = stop.day_number;
+                    console.log(`Stop: day ${dayNum}, order ${stop.order_in_day}`);
+
+                    if (!stopsGroupedByDay[dayNum]) {
+                        stopsGroupedByDay[dayNum] = [];
+                    }
+
+                    // Extract spot details from joined data
+                    const spotData = (stop as any).spot;
+                    if (spotData) {
+                        console.log(`  - ${spotData.name} at [${spotData.lat}, ${spotData.lng}]`);
+                        stopsGroupedByDay[dayNum].push({
+                            name: spotData.name,
+                            description: spotData.description || '',
+                            category: spotData.category || 'popular',
+                            lat: spotData.lat,
+                            lng: spotData.lng,
+                            imageUrl: spotData.image_url || '',
+                            rating: spotData.rating,
+                            country: spotData.country,
+                        });
+                    } else {
+                        console.log('  - No spot data found for stop');
+                    }
+                }
+
+                // Convert to itinerary array format
+                const loadedItinerary: DayItinerary[] = Object.keys(stopsGroupedByDay)
+                    .sort((a, b) => Number(a) - Number(b))
+                    .map(dayNum => ({
+                        day: Number(dayNum),
+                        spots: stopsGroupedByDay[Number(dayNum)],
+                    }));
+
+                console.log('Loaded itinerary structure:');
+                loadedItinerary.forEach(day => {
+                    console.log(`  Day ${day.day}: ${day.spots.length} spots`);
+                });
+
+                if (loadedItinerary.length > 0) {
+                    setItinerary(loadedItinerary);
+                    // Also set spots for markers
+                    const allSpots = loadedItinerary.flatMap(day => day.spots);
+                    setSpots(allSpots);
+                    console.log('=== Trip Loaded Successfully ===');
+                    console.log(`Total: ${loadedItinerary.length} days, ${allSpots.length} spots`);
+                }
+            } else {
+                console.log('No stops found in database for this trip');
+            }
+        } catch (e) {
+            console.error('Failed to load trip:', e);
         }
 
         setLoading(false);
@@ -81,8 +143,26 @@ export default function TripPlannerScreen() {
         try {
             const destination = trip?.destination || 'Trip';
             const days = trip?.duration_days || 3;
-            const generated = await generateItinerary(destination, spots, days);
+
+            // Add country info to spots for database persistence
+            const spotsWithCountry = spots.map(s => ({
+                ...s,
+                country: destination, // Use trip destination as country
+            }));
+
+            const generated = await generateItinerary(destination, spotsWithCountry, days);
             setItinerary(generated);
+
+            // Save to database if we have trip and user info
+            if (trip?.id && trip?.user_id) {
+                try {
+                    await saveTripItinerary(trip.id, trip.user_id, generated);
+                    console.log('Itinerary saved to database successfully');
+                } catch (saveError) {
+                    console.error('Failed to save itinerary to database:', saveError);
+                    // Don't fail the whole operation if save fails
+                }
+            }
 
             // Fit map to show all spots
             if (mapRef.current && spots.length > 0) {
@@ -172,11 +252,24 @@ export default function TripPlannerScreen() {
 
     const getAllSpotsWithDayInfo = () => {
         const spotsWithDay: { spot: GeneratedSpot; dayIndex: number; orderIndex: number }[] = [];
-        itinerary.forEach((day, dayIndex) => {
-            day.spots.forEach((spot, orderIndex) => {
-                spotsWithDay.push({ spot, dayIndex, orderIndex });
+
+        // If itinerary exists, use it
+        if (itinerary.length > 0 && itinerary.some(day => day.spots.length > 0)) {
+            itinerary.forEach((day, dayIndex) => {
+                // Filter by selected day if one is chosen
+                if (selectedDay !== null && dayIndex !== selectedDay) return;
+
+                day.spots.forEach((spot, orderIndex) => {
+                    spotsWithDay.push({ spot, dayIndex, orderIndex });
+                });
             });
-        });
+        } else {
+            // Otherwise show raw spots (before AI planning)
+            spots.forEach((spot, index) => {
+                spotsWithDay.push({ spot, dayIndex: -1, orderIndex: index });
+            });
+        }
+
         return spotsWithDay;
     };
 
@@ -207,15 +300,20 @@ export default function TripPlannerScreen() {
                             key={`marker-${index}`}
                             coordinate={{ latitude: spot.lat, longitude: spot.lng }}
                             title={spot.name}
+                            description={`${dayIndex !== -1 ? `Day ${dayIndex + 1} • ` : ''}${spot.description || spot.category}`}
                         >
                             <View style={[styles.markerContainer, { backgroundColor: dayIndex !== -1 ? DAY_COLORS[dayIndex % DAY_COLORS.length] : '#9CA3AF' }]}>
-                                <Text style={styles.markerText}>{orderIndex + 1}</Text>
+                                <Text style={styles.markerText}>
+                                    {dayIndex !== -1 ? `${dayIndex + 1}` : `${orderIndex + 1}`}
+                                </Text>
                             </View>
                         </Marker>
                     ))}
 
                     {/* Route polylines per day */}
                     {itinerary.map((day, dayIndex) => {
+                        // Filter by selected day if one is chosen
+                        if (selectedDay !== null && dayIndex !== selectedDay) return null;
                         if (day.spots.length < 2) return null;
                         const coordinates = day.spots.map(s => ({ latitude: s.lat, longitude: s.lng }));
                         return (
@@ -245,6 +343,35 @@ export default function TripPlannerScreen() {
 
             {/* Bottom Sheet Content */}
             <View style={styles.bottomSheet}>
+                {/* AI Planning Prompt */}
+                {showAIPrompt && spots.length > 0 && (
+                    <View style={styles.aiPromptContainer}>
+                        <Text style={styles.aiPromptTitle}>🤖 AI Trip Planning</Text>
+                        <Text style={styles.aiPromptText}>
+                            You have {spots.length} spots. Want me to create an optimized day-by-day itinerary?
+                        </Text>
+                        <View style={styles.aiPromptButtons}>
+                            <TouchableOpacity
+                                style={styles.aiPromptButtonPrimary}
+                                onPress={handlePlanForMe}
+                                disabled={generatingItinerary}
+                            >
+                                {generatingItinerary ? (
+                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                ) : (
+                                    <Text style={styles.aiPromptButtonPrimaryText}>Yes, plan for me!</Text>
+                                )}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.aiPromptButtonSecondary}
+                                onPress={handlePlanMyself}
+                            >
+                                <Text style={styles.aiPromptButtonSecondaryText}>I'll plan myself</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                )}
+
                 {/* Header */}
                 <View style={styles.tripHeader}>
                     <View style={{ flex: 1 }}>
@@ -296,15 +423,30 @@ export default function TripPlannerScreen() {
                                 <Text style={styles.overviewTitle}>Itinerary Overview</Text>
                             </View>
 
-                            {itinerary.map((day) => (
-                                <View key={day.day} style={styles.dayCard}>
-                                    <Text style={styles.dayCardTitle}>Day {day.day}</Text>
+                            {itinerary.map((day, dayIndex) => (
+                                <TouchableOpacity
+                                    key={day.day}
+                                    style={[
+                                        styles.dayCard,
+                                        selectedDay === dayIndex && styles.dayCardSelected
+                                    ]}
+                                    onPress={() => setSelectedDay(selectedDay === dayIndex ? null : dayIndex)}
+                                >
+                                    <View style={styles.dayCardHeader}>
+                                        <View style={[styles.dayBadge, { backgroundColor: DAY_COLORS[dayIndex % DAY_COLORS.length] }]}>
+                                            <Text style={styles.dayBadgeText}>{day.day}</Text>
+                                        </View>
+                                        <Text style={styles.dayCardTitle}>Day {day.day}</Text>
+                                        {selectedDay === dayIndex && (
+                                            <Ionicons name="checkmark-circle" size={20} color="#3B82F6" />
+                                        )}
+                                    </View>
                                     <View style={styles.dayCardContent}>
                                         <Text style={styles.dayCardRoute}>
                                             {day.spots.map(s => s.name).join(' → ') || 'No spots planned'}
                                         </Text>
                                     </View>
-                                </View>
+                                </TouchableOpacity>
                             ))}
 
                             {spots.length > itinerary.flatMap(d => d.spots).length && (
@@ -403,9 +545,10 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     markerContainer: {
-        width: 32,
+        minWidth: 32,
         height: 32,
         borderRadius: 16,
+        paddingHorizontal: 6,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
@@ -413,7 +556,7 @@ const styles = StyleSheet.create({
     },
     markerText: {
         color: '#FFFFFF',
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: 'bold',
     },
 
@@ -660,10 +803,33 @@ const styles = StyleSheet.create({
         borderColor: '#F3F4F6',
     },
     dayCardTitle: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#000000',
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#1F2937',
+        flex: 1,
+    },
+    dayCardSelected: {
+        borderColor: '#3B82F6',
+        borderWidth: 2,
+        backgroundColor: '#F0F9FF',
+    },
+    dayCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
         marginBottom: 12,
+    },
+    dayBadge: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    dayBadgeText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: 'bold',
     },
     dayCardContent: {
         flexDirection: 'row',
@@ -756,5 +922,50 @@ const styles = StyleSheet.create({
     itinerarySpotCategory: {
         fontSize: 13,
         color: '#6B7280',
+    },
+    // AI Prompt Modal
+    aiPromptContainer: {
+        backgroundColor: '#F0F9FF',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#BAE6FD',
+    },
+    aiPromptText: {
+        fontSize: 14,
+        color: '#0C4A6E',
+        marginBottom: 16,
+        lineHeight: 20,
+    },
+    aiPromptButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    aiPromptButtonPrimary: {
+        flex: 1,
+        backgroundColor: '#0EA5E9',
+        paddingVertical: 14,
+        borderRadius: 10,
+        alignItems: 'center',
+    },
+    aiPromptButtonPrimaryText: {
+        color: '#FFFFFF',
+        fontWeight: '600',
+        fontSize: 15,
+    },
+    aiPromptButtonSecondary: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        paddingVertical: 14,
+        borderRadius: 10,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    aiPromptButtonSecondaryText: {
+        color: '#374151',
+        fontWeight: '600',
+        fontSize: 15,
     },
 });

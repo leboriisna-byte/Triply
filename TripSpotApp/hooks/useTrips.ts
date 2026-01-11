@@ -42,9 +42,23 @@ export function useTrips() {
 
             if (tripError) throw tripError;
 
+            // Fetch stops with joined spot details
             const { data: stops, error: stopsError } = await supabase
                 .from('trip_stops')
-                .select('*')
+                .select(`
+                    *,
+                    spot:spots (
+                        id,
+                        name,
+                        lat,
+                        lng,
+                        description,
+                        image_url,
+                        category,
+                        rating,
+                        country
+                    )
+                `)
                 .eq('trip_id', tripId)
                 .order('day_number', { ascending: true })
                 .order('order_in_day', { ascending: true });
@@ -132,6 +146,99 @@ export function useTrips() {
         }
     };
 
+    // Save AI-generated spots and link them to a trip
+    const saveTripItinerary = async (
+        tripId: string,
+        userId: string,
+        itinerary: { day: number; theme?: string; spots: any[] }[]
+    ) => {
+        // Map AI categories to database-valid categories
+        // Database accepts: 'cafe', 'restaurant', 'attraction', 'hotel', 'bar', 'other'
+        // AI generates: 'popular', 'museum', 'nature', 'foodie', 'history', 'shopping'
+        const mapCategory = (aiCategory: string): string => {
+            const mapping: Record<string, string> = {
+                'popular': 'attraction',
+                'museum': 'attraction',
+                'nature': 'attraction',
+                'foodie': 'restaurant',
+                'history': 'attraction',
+                'shopping': 'other',
+                'cafe': 'cafe',
+                'restaurant': 'restaurant',
+                'attraction': 'attraction',
+                'hotel': 'hotel',
+                'bar': 'bar',
+                'other': 'other',
+            };
+            return mapping[aiCategory?.toLowerCase()] || 'attraction';
+        };
+
+        try {
+            console.log(`Saving itinerary with ${itinerary.length} days to trip ${tripId}`);
+            let savedCount = 0;
+
+            // For each day in the itinerary
+            for (const day of itinerary) {
+                console.log(`Processing Day ${day.day}: ${day.spots.length} spots`);
+
+                for (let orderIndex = 0; orderIndex < day.spots.length; orderIndex++) {
+                    const spot = day.spots[orderIndex];
+                    const dbCategory = mapCategory(spot.category);
+
+                    console.log(`Saving spot: ${spot.name} (category: ${spot.category} -> ${dbCategory})`);
+
+                    // First, save the spot to the spots table
+                    const { data: savedSpot, error: spotError } = await supabase
+                        .from('spots')
+                        .insert({
+                            user_id: userId,
+                            name: spot.name,
+                            lat: spot.lat,
+                            lng: spot.lng,
+                            country: spot.country || 'Unknown',
+                            category: dbCategory,
+                            description: spot.description,
+                            image_url: spot.imageUrl,
+                            rating: spot.rating,
+                            source_platform: 'manual',
+                        })
+                        .select()
+                        .single();
+
+                    if (spotError) {
+                        console.error('Error saving spot:', spot.name, spotError);
+                        continue; // Skip this spot but continue with others
+                    }
+
+                    console.log(`Saved spot: ${savedSpot.name} (${savedSpot.id})`);
+
+                    // Then link it to the trip via trip_stops
+                    const { error: stopError } = await supabase
+                        .from('trip_stops')
+                        .insert({
+                            trip_id: tripId,
+                            spot_id: savedSpot.id,
+                            day_number: day.day,
+                            order_in_day: orderIndex + 1,
+                        });
+
+                    if (stopError) {
+                        console.error('Error linking spot to trip:', stopError);
+                    } else {
+                        savedCount++;
+                    }
+                }
+            }
+
+            console.log(`Successfully saved ${savedCount} spots to database`);
+            return true;
+        } catch (err) {
+            console.error('saveTripItinerary error:', err);
+            setError(err instanceof Error ? err.message : 'Failed to save itinerary');
+            throw err;
+        }
+    };
+
     useEffect(() => {
         fetchTrips();
     }, []);
@@ -146,5 +253,6 @@ export function useTrips() {
         updateTrip,
         deleteTrip,
         addStopToTrip,
+        saveTripItinerary,
     };
 }

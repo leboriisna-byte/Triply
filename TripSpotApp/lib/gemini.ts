@@ -8,6 +8,7 @@ export interface GeneratedSpot {
     lng: number;
     imageUrl: string;
     rating?: number;
+    country?: string; // Added for database persistence
 }
 
 export interface TripPreferences {
@@ -17,10 +18,23 @@ export interface TripPreferences {
     days: number;
 }
 
+export interface DayPlan {
+    day: number;
+    theme?: string;
+    spots: GeneratedSpot[];
+}
+
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
 async function callGemini(prompt: string): Promise<string> {
+    if (!GEMINI_API_KEY) {
+        console.error('Gemini API key not configured');
+        throw new Error('Gemini API key not configured. Please add EXPO_PUBLIC_GEMINI_API_KEY to your .env file.');
+    }
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    console.log('Calling Gemini AI...');
 
     const response = await fetch(url, {
         method: 'POST',
@@ -33,14 +47,14 @@ async function callGemini(prompt: string): Promise<string> {
             }],
             generationConfig: {
                 temperature: 0.7,
-                maxOutputTokens: 2048,
+                maxOutputTokens: 4096,
             }
         })
     });
 
     if (!response.ok) {
         const error = await response.text();
-        console.error('Gemini API Response:', error);
+        console.error('Gemini API Error:', error);
         throw new Error(`Gemini API error: ${response.status}`);
     }
 
@@ -50,21 +64,91 @@ async function callGemini(prompt: string): Promise<string> {
         throw new Error('Invalid response from Gemini');
     }
 
+    console.log('Gemini AI response received successfully');
     return data.candidates[0].content.parts[0].text;
 }
 
+/**
+ * Generate a complete day-by-day trip plan using AI
+ * This creates everything in one call - spots organized by day with themes
+ */
+export async function generateFullTrip(preferences: TripPreferences): Promise<DayPlan[]> {
+    const prompt = `You are an expert travel planner. Create a detailed ${preferences.days}-day trip itinerary for ${preferences.destination}, ${preferences.country}.
+
+The traveler is interested in: ${preferences.categories.join(', ')}.
+
+Create a day-by-day plan where each day has:
+- A theme (e.g., "Historic Old Town", "Food & Markets Day", "Nature Exploration")
+- 3-4 spots that are geographically close to each other for efficient travel
+- Spots should flow logically (e.g., breakfast spot → morning attraction → lunch → afternoon activities)
+
+For each spot provide:
+- name: Exact place name
+- description: 1-2 sentences about what makes it special
+- category: One of: popular, museum, nature, foodie, history, shopping
+- lat: Accurate latitude coordinate
+- lng: Accurate longitude coordinate
+- rating: Rating between 4.0-5.0
+
+Return ONLY valid JSON in this exact format:
+[
+  {
+    "day": 1,
+    "theme": "Day theme here",
+    "spots": [
+      {"name": "Place Name", "description": "Description", "category": "popular", "lat": 35.67, "lng": 139.65, "rating": 4.7}
+    ]
+  }
+]
+
+Important:
+- Use ACCURATE real coordinates for each location
+- Group nearby spots on the same day
+- Consider realistic timing (not too many spots per day)
+- Return ONLY the JSON array, no markdown or extra text`;
+
+    try {
+        const text = await callGemini(prompt);
+
+        // Clean response
+        let cleanText = text.trim();
+        if (cleanText.startsWith('```json')) cleanText = cleanText.slice(7);
+        if (cleanText.startsWith('```')) cleanText = cleanText.slice(3);
+        if (cleanText.endsWith('```')) cleanText = cleanText.slice(0, -3);
+        cleanText = cleanText.trim();
+
+        const itinerary: DayPlan[] = JSON.parse(cleanText);
+
+        // Add image URLs and country to each spot
+        return itinerary.map(day => ({
+            ...day,
+            spots: day.spots.map((spot, index) => ({
+                ...spot,
+                country: preferences.country || preferences.destination,
+                imageUrl: `https://picsum.photos/seed/${encodeURIComponent(spot.name + day.day + index)}/400/300`,
+            }))
+        }));
+    } catch (error) {
+        console.error('AI Trip Planning Error:', error);
+        throw error; // Don't silently fall back - let the UI handle the error
+    }
+}
+
+/**
+ * Generate spots for a destination (discovery mode)
+ */
 export async function generateSpots(preferences: TripPreferences): Promise<GeneratedSpot[]> {
-    const prompt = `You are a travel expert. Generate ${Math.min(preferences.days * 4, 12)} unique travel spots for a trip to ${preferences.destination}, ${preferences.country}.
+    const prompt = `You are a travel expert. Generate ${Math.min(preferences.days * 4, 15)} unique travel spots for a trip to ${preferences.destination}, ${preferences.country}.
 
 The traveler is interested in: ${preferences.categories.join(', ')}.
 Trip duration: ${preferences.days} days.
 
 For each spot provide JSON with:
-- name: Place name
+- name: Exact place name
 - description: 1-2 sentence description
 - category: One of: popular, museum, nature, foodie, history, shopping
-- lat: Latitude (accurate)
-- lng: Longitude (accurate)  
+- lat: Accurate latitude coordinate
+- lng: Accurate longitude coordinate  
 - rating: Rating 4.0-5.0
 
 Return ONLY a valid JSON array, no markdown. Example:
@@ -84,32 +168,80 @@ Return ONLY a valid JSON array, no markdown. Example:
 
         return spots.map((spot, index) => ({
             ...spot,
+            country: preferences.country || preferences.destination,
             imageUrl: `https://picsum.photos/seed/${encodeURIComponent(spot.name + index)}/400/300`,
         }));
     } catch (error) {
-        console.error('Gemini error:', error);
-        // Return mock data as fallback
-        return getMockSpots(preferences);
+        console.error('Gemini spot generation error:', error);
+        throw error; // Don't silently fall back
     }
 }
 
+/**
+ * Use AI to optimize an existing set of spots into a smart itinerary
+ */
 export async function generateItinerary(
     destination: string,
     spots: GeneratedSpot[],
     days: number
-): Promise<{ day: number; spots: GeneratedSpot[] }[]> {
-    // Simple distribution fallback (works without API)
-    const spotsPerDay = Math.ceil(spots.length / days);
-    const itinerary = [];
-
-    for (let d = 0; d < days; d++) {
-        itinerary.push({
-            day: d + 1,
-            spots: spots.slice(d * spotsPerDay, (d + 1) * spotsPerDay),
-        });
+): Promise<DayPlan[]> {
+    if (spots.length === 0) {
+        return Array.from({ length: days }, (_, i) => ({ day: i + 1, spots: [] }));
     }
 
-    return itinerary;
+    const spotsList = spots.map(s => `- ${s.name} (${s.category}) at [${s.lat}, ${s.lng}]`).join('\n');
+
+    const prompt = `You are an expert travel planner. Organize these spots into an optimal ${days}-day itinerary for ${destination}.
+
+Available spots:
+${spotsList}
+
+Rules:
+1. Group spots that are geographically close on the same day
+2. Create a logical flow (e.g., morning activities → lunch → afternoon → evening)
+3. Don't overload any single day (max 4-5 spots)
+4. Each day should have a theme if possible
+
+Return ONLY valid JSON in this format:
+[
+  {
+    "day": 1,
+    "theme": "Theme for day 1",
+    "spotNames": ["Spot Name 1", "Spot Name 2"]
+  }
+]
+
+Return ONLY the JSON array, no extra text.`;
+
+    try {
+        const text = await callGemini(prompt);
+
+        let cleanText = text.trim();
+        if (cleanText.startsWith('```json')) cleanText = cleanText.slice(7);
+        if (cleanText.startsWith('```')) cleanText = cleanText.slice(3);
+        if (cleanText.endsWith('```')) cleanText = cleanText.slice(0, -3);
+
+        const aiPlan: { day: number; theme?: string; spotNames: string[] }[] = JSON.parse(cleanText.trim());
+
+        // Map spot names back to full spot objects
+        const spotMap = new Map(spots.map(s => [s.name.toLowerCase().trim(), s]));
+
+        return aiPlan.map(day => ({
+            day: day.day,
+            theme: day.theme,
+            spots: day.spotNames
+                .map(name => spotMap.get(name.toLowerCase().trim()))
+                .filter((s): s is GeneratedSpot => s !== undefined)
+        }));
+    } catch (error) {
+        console.error('AI Itinerary Error, falling back to simple distribution:', error);
+        // Fallback to simple distribution only if AI fails
+        const spotsPerDay = Math.ceil(spots.length / days);
+        return Array.from({ length: days }, (_, d) => ({
+            day: d + 1,
+            spots: spots.slice(d * spotsPerDay, (d + 1) * spotsPerDay),
+        }));
+    }
 }
 
 function getMockSpots(preferences: TripPreferences): GeneratedSpot[] {
@@ -135,6 +267,7 @@ function getMockSpots(preferences: TripPreferences): GeneratedSpot[] {
 
     return spots.slice(0, preferences.days * 3).map((spot, index) => ({
         ...spot,
+        country: preferences.country || preferences.destination,
         imageUrl: `https://picsum.photos/seed/${encodeURIComponent(spot.name + index)}/400/300`,
     }));
 }

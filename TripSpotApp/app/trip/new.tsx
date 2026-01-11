@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { countries, tripCategories, searchDestinations } from '../../lib/tripData';
-import { generateSpots, generateItinerary, GeneratedSpot, TripPreferences } from '../../lib/gemini';
+import { generateFullTrip, GeneratedSpot, TripPreferences, DayPlan } from '../../lib/gemini';
 import { useAuth } from '../../hooks/useAuth';
 import { useTrips } from '../../hooks/useTrips';
 
@@ -45,13 +45,14 @@ export default function TripWizardScreen() {
     const VISIBLE_ITEMS = 5; // How many items visible at once
     const daysData = Array.from({ length: 14 }, (_, i) => i + 1); // 1 to 14 days
     const [spots, setSpots] = useState<GeneratedSpot[]>([]);
+    const [itinerary, setItinerary] = useState<DayPlan[]>([]);
     const [selectedSpots, setSelectedSpots] = useState<Set<number>>(new Set());
     const [loading, setLoading] = useState(false);
     const [activeFilter, setActiveFilter] = useState('All');
 
     const slideAnim = useRef(new Animated.Value(0)).current;
     const { user, isGuest } = useAuth();
-    const { createTrip } = useTrips();
+    const { createTrip, saveTripItinerary } = useTrips();
 
     const handleSearch = (query: string) => {
         setSearchQuery(query);
@@ -100,12 +101,29 @@ export default function TripWizardScreen() {
                 days: tripDays,
             };
 
-            const generatedSpots = await generateSpots(preferences);
-            setSpots(generatedSpots);
+            console.log('Generating full trip plan with AI...');
+            // Use AI to generate complete day-by-day trip plan
+            const generatedItinerary = await generateFullTrip(preferences);
+            setItinerary(generatedItinerary);
+
+            // Extract all spots from the itinerary
+            const allSpots = generatedItinerary.flatMap(day => day.spots);
+            setSpots(allSpots);
+
             // Select all spots by default
-            setSelectedSpots(new Set(generatedSpots.map((_, i) => i)));
+            setSelectedSpots(new Set(allSpots.map((_, i) => i)));
+
+            console.log(`AI generated ${generatedItinerary.length}-day plan with ${allSpots.length} spots`);
         } catch (error) {
-            console.error('Failed to generate spots:', error);
+            console.error('Failed to generate trip plan:', error);
+            Alert.alert(
+                'AI Planning Failed',
+                error instanceof Error ? error.message : 'Failed to generate trip plan. Please check your internet connection.',
+                [
+                    { text: 'Try Again', onPress: handleDurationConfirm },
+                    { text: 'Cancel', onPress: () => setStep('duration'), style: 'cancel' }
+                ]
+            );
         } finally {
             setLoading(false);
         }
@@ -141,13 +159,9 @@ export default function TripWizardScreen() {
         console.log('Attempting to create trip with user:', user.id);
 
         try {
-            const selectedSpotsList = withSpots
-                ? spots.filter((_, i) => selectedSpots.has(i))
-                : [];
-
             console.log('Creating trip payload for destination:', selectedDestination.name);
 
-            // Using explicit type casting to avoid TS errors during debugging
+            // Create the trip record first
             const trip: any = await createTrip({
                 user_id: user.id,
                 name: `${tripDays}-Day ${selectedDestination.name} Trip`,
@@ -159,13 +173,18 @@ export default function TripWizardScreen() {
 
             console.log('Trip created successfully:', trip.id);
 
-            // Navigate to trip planner with spots data
+            // Save ALL spots and itinerary to database immediately
+            if (withSpots && itinerary.length > 0) {
+                console.log('Saving itinerary to database...');
+                await saveTripItinerary(trip.id, user.id, itinerary);
+                console.log('Itinerary saved with', spots.length, 'spots');
+            }
+
+            // Navigate to trip planner (data is already in DB, no need for params)
             router.replace({
-                pathname: `/trip/[id]`, // Use static path pattern
+                pathname: `/trip/[id]`,
                 params: {
-                    id: trip.id, // Pass ID as param
-                    newTrip: 'true',
-                    spotsJson: JSON.stringify(selectedSpotsList),
+                    id: trip.id,
                 },
             });
         } catch (error) {
