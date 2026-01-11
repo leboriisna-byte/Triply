@@ -36,11 +36,11 @@ export interface TripCategory {
 }
 
 export const tripCategories: TripCategory[] = [
-    { id: 'popular', name: 'Popular', emoji: '📍' },
-    { id: 'museum', name: 'Museum', emoji: '🏛️' },
-    { id: 'nature', name: 'Nature', emoji: '🌿' },
+    { id: 'popular', name: 'Popular', emoji: '📌' },
+    { id: 'museum', name: 'Museum', emoji: '🖼️' },
+    { id: 'nature', name: 'Nature', emoji: '⛰️' },
     { id: 'foodie', name: 'Foodie', emoji: '🍕' },
-    { id: 'history', name: 'History', emoji: '🏰' },
+    { id: 'history', name: 'History', emoji: '🏛️' },
     { id: 'shopping', name: 'Shopping', emoji: '🛍️' },
 ];
 

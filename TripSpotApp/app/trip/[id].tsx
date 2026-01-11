@@ -192,7 +192,7 @@ export default function TripPlannerScreen() {
 
     return (
         <View style={styles.container}>
-            {/* Map */}
+            {/* Map Section (Top) */}
             <View style={styles.mapContainer}>
                 <MapView
                     ref={mapRef}
@@ -208,7 +208,7 @@ export default function TripPlannerScreen() {
                             coordinate={{ latitude: spot.lat, longitude: spot.lng }}
                             title={spot.name}
                         >
-                            <View style={[styles.markerContainer, { backgroundColor: DAY_COLORS[dayIndex % DAY_COLORS.length] }]}>
+                            <View style={[styles.markerContainer, { backgroundColor: dayIndex !== -1 ? DAY_COLORS[dayIndex % DAY_COLORS.length] : '#9CA3AF' }]}>
                                 <Text style={styles.markerText}>{orderIndex + 1}</Text>
                             </View>
                         </Marker>
@@ -223,215 +223,128 @@ export default function TripPlannerScreen() {
                                 key={`route-${dayIndex}`}
                                 coordinates={coordinates}
                                 strokeColor={DAY_COLORS[dayIndex % DAY_COLORS.length]}
-                                strokeWidth={3}
-                                lineDashPattern={[1]}
+                                strokeWidth={4}
                             />
                         );
                     })}
                 </MapView>
 
-                {/* Back & Edit buttons */}
+                {/* Back Button */}
                 <View style={styles.mapHeader}>
                     <TouchableOpacity style={styles.mapButton} onPress={() => router.back()}>
                         <Ionicons name="chevron-back" size={24} color="#1F2937" />
                     </TouchableOpacity>
-                    <View style={styles.dayBadges}>
-                        {itinerary.map((day, i) => (
-                            <View key={i} style={[styles.dayBadge, { backgroundColor: DAY_COLORS[i % DAY_COLORS.length] }]}>
-                                <Text style={styles.dayBadgeText}>Day {day.day}</Text>
-                            </View>
-                        ))}
-                    </View>
-                    <View style={styles.headerButtons}>
-                        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteTrip}>
-                            <Ionicons name="trash-outline" size={18} color="#EF4444" />
-                        </TouchableOpacity>
-                    </View>
+
+                    {/* Map Edit Controls - optional, maybe just for the map view */}
+                    <TouchableOpacity style={styles.mapEditButton}>
+                        <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+                        <Text style={styles.mapEditText}>Edit</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
 
-            {/* AI Planning Prompt */}
-            {showAIPrompt && (
-                <View style={styles.aiPromptOverlay}>
-                    <View style={styles.aiPromptCard}>
-                        <Text style={styles.aiPromptTitle}>
-                            Your days aren't full yet!{'\n'}Want us to add some places we{'\n'}think you'll love?
-                        </Text>
-
-                        {/* Mini Map Preview */}
-                        <View style={styles.miniMapContainer}>
-                            <MapView
-                                style={styles.miniMap}
-                                provider={PROVIDER_DEFAULT}
-                                region={getMapRegion()}
-                                scrollEnabled={false}
-                                zoomEnabled={false}
-                            >
-                                {spots.slice(0, 3).map((spot, index) => (
-                                    <Marker
-                                        key={`preview-${index}`}
-                                        coordinate={{ latitude: spot.lat, longitude: spot.lng }}
-                                    >
-                                        <View style={[styles.previewMarker, { backgroundColor: DAY_COLORS[0] }]}>
-                                            <Text style={styles.markerText}>{index + 1}</Text>
-                                        </View>
-                                    </Marker>
-                                ))}
-                            </MapView>
+            {/* Bottom Sheet Content */}
+            <View style={styles.bottomSheet}>
+                {/* Header */}
+                <View style={styles.tripHeader}>
+                    <View style={{ flex: 1 }}>
+                        <View style={styles.titleRow}>
+                            <Text style={styles.tripName}>{trip?.name || 'My Trip'}</Text>
+                            <TouchableOpacity>
+                                <Ionicons name="pencil" size={16} color="#9CA3AF" />
+                            </TouchableOpacity>
                         </View>
+                        <View style={styles.metaRow}>
+                            <Text style={styles.tripMeta}>
+                                {trip?.duration_days} days {trip?.duration_days && trip.duration_days > 1 ? `${trip.duration_days - 1} nights` : ''} • Choose dates
+                            </Text>
+                            <Ionicons name="chevron-forward" size={14} color="#9CA3AF" />
+                        </View>
+                    </View>
+                    <TouchableOpacity style={styles.shareButton}>
+                        <Ionicons name="share-outline" size={20} color="#FFFFFF" />
+                        <Text style={styles.shareText}>Share</Text>
+                    </TouchableOpacity>
+                </View>
 
-                        <View style={styles.planningPreview}>
-                            <View style={styles.planningHeader}>
-                                <Ionicons name="sparkles" size={16} color="#6B7280" />
-                                <Text style={styles.planningText}>Planning your perfect trip...</Text>
+                {/* Tabs */}
+                <View style={styles.tabs}>
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
+                        onPress={() => setActiveTab('overview')}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>Overview</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === 'itinerary' && styles.tabActive]}
+                        onPress={() => setActiveTab('itinerary')}
+                    >
+                        <Text style={[styles.tabText, activeTab === 'itinerary' && styles.tabTextActive]}>Itinerary</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Tab Content */}
+                <ScrollView
+                    style={styles.content}
+                    contentContainerStyle={{ paddingBottom: 40 }}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {activeTab === 'overview' ? (
+                        <>
+                            <View style={styles.overviewHeader}>
+                                <Text style={styles.overviewEmoji}>🚋</Text>
+                                <Text style={styles.overviewTitle}>Itinerary Overview</Text>
                             </View>
-                            <Text style={styles.dayLabel}>Day 1</Text>
-                            {spots.slice(0, 3).map((spot, index) => (
-                                <View key={index} style={styles.previewSpot}>
-                                    <View style={styles.previewSpotNumber}>
-                                        <Text style={styles.previewSpotNumberText}>{index + 1}</Text>
+
+                            {itinerary.map((day) => (
+                                <View key={day.day} style={styles.dayCard}>
+                                    <Text style={styles.dayCardTitle}>Day {day.day}</Text>
+                                    <View style={styles.dayCardContent}>
+                                        <Text style={styles.dayCardRoute}>
+                                            {day.spots.map(s => s.name).join(' → ') || 'No spots planned'}
+                                        </Text>
                                     </View>
-                                    <Text style={styles.previewSpotName}>{spot.name}</Text>
                                 </View>
                             ))}
-                        </View>
 
-                        <TouchableOpacity
-                            style={styles.planForMeButton}
-                            onPress={handlePlanForMe}
-                        >
-                            <Ionicons name="sparkles" size={20} color="#FFFFFF" />
-                            <Text style={styles.planForMeText}>Yes, plan for me!</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.planMyselfButton}
-                            onPress={handlePlanMyself}
-                        >
-                            <Text style={styles.planMyselfText}>No, I'll plan myself</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.closePromptButton} onPress={handlePlanMyself}>
-                            <Ionicons name="close" size={24} color="#1F2937" />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
-
-            {/* Bottom Sheet */}
-            <View style={styles.bottomSheet}>
-                {generatingItinerary ? (
-                    <View style={styles.generatingContainer}>
-                        <ActivityIndicator color="#3B82F6" />
-                        <Text style={styles.generatingText}>Creating your perfect itinerary...</Text>
-                    </View>
-                ) : (
-                    <>
-                        {/* Trip Header */}
-                        <View style={styles.tripHeader}>
-                            <View>
-                                <Text style={styles.tripName}>{trip?.name || 'My Trip'}</Text>
-                                <Text style={styles.tripMeta}>
-                                    {trip?.duration_days} days • Choose dates
-                                </Text>
-                            </View>
-                            <TouchableOpacity style={styles.shareButton}>
-                                <Ionicons name="share-outline" size={20} color="#1F2937" />
-                                <Text style={styles.shareText}>Share</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Tabs */}
-                        <View style={styles.tabs}>
-                            <TouchableOpacity
-                                style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
-                                onPress={() => setActiveTab('overview')}
-                            >
-                                <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>
-                                    Overview
-                                </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.tab, activeTab === 'itinerary' && styles.tabActive]}
-                                onPress={() => setActiveTab('itinerary')}
-                            >
-                                <Text style={[styles.tabText, activeTab === 'itinerary' && styles.tabTextActive]}>
-                                    Itinerary
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Content */}
-                        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-                            {activeTab === 'overview' ? (
-                                <>
-                                    <View style={styles.overviewHeader}>
-                                        <Text style={styles.overviewEmoji}>🗺️</Text>
-                                        <Text style={styles.overviewTitle}>Itinerary Overview</Text>
-                                    </View>
-
-                                    {itinerary.map((day) => (
-                                        <View key={day.day} style={styles.daySummary}>
-                                            <Text style={styles.daySummaryTitle}>Day {day.day}</Text>
-                                            <Text style={styles.daySummarySpots}>
-                                                {day.spots.map(s => s.name).join(' → ') || 'No spots yet'}
-                                            </Text>
-                                        </View>
-                                    ))}
-
-                                    {spots.length > 0 && itinerary.flatMap(d => d.spots).length < spots.length && (
-                                        <View style={styles.unplannedSection}>
-                                            <Text style={styles.unplannedTitle}>Unplanned</Text>
-                                            <Text style={styles.unplannedText}>
-                                                {spots.length - itinerary.flatMap(d => d.spots).length} spots not yet planned
-                                            </Text>
-                                        </View>
-                                    )}
-                                </>
-                            ) : (
-                                <>
-                                    {itinerary.map((day) => (
-                                        <View key={day.day} style={styles.daySection}>
-                                            <View style={styles.dayHeader}>
-                                                <Text style={styles.dayTitle}>Day {day.day}</Text>
-                                                <TouchableOpacity style={styles.optimizeButton}>
-                                                    <Ionicons name="flash" size={16} color="#3B82F6" />
-                                                    <Text style={styles.optimizeText}>Optimize</Text>
-                                                </TouchableOpacity>
-                                            </View>
-
-                                            {day.spots.length === 0 ? (
-                                                <TouchableOpacity style={styles.addPlaceButton}>
-                                                    <Ionicons name="add" size={20} color="#3B82F6" />
-                                                    <Text style={styles.addPlaceText}>Add a place</Text>
-                                                </TouchableOpacity>
-                                            ) : (
-                                                day.spots.map((spot, index) => (
-                                                    <View key={index} style={styles.itinerarySpot}>
-                                                        <View style={[styles.spotBadge, { backgroundColor: DAY_COLORS[day.day - 1] }]}>
-                                                            <Text style={styles.spotBadgeText}>{index + 1}</Text>
-                                                        </View>
-                                                        <Image
-                                                            source={{ uri: spot.imageUrl }}
-                                                            style={styles.itinerarySpotImage}
-                                                        />
-                                                        <View style={styles.itinerarySpotInfo}>
-                                                            <Text style={styles.itinerarySpotName}>{spot.name}</Text>
-                                                            <Text style={styles.itinerarySpotCategory}>
-                                                                {spot.category.charAt(0).toUpperCase() + spot.category.slice(1)}
-                                                            </Text>
-                                                        </View>
-                                                        <Ionicons name="reorder-three" size={24} color="#9CA3AF" />
-                                                    </View>
-                                                ))
-                                            )}
-                                        </View>
-                                    ))}
-                                </>
+                            {spots.length > itinerary.flatMap(d => d.spots).length && (
+                                <View style={styles.unplannedCard}>
+                                    <Text style={styles.unplannedCardTitle}>Unplanned</Text>
+                                    <Text style={styles.unplannedCardText}>
+                                        {spots.length - itinerary.flatMap(d => d.spots).length} spots yet to visit
+                                    </Text>
+                                </View>
                             )}
-                        </ScrollView>
-                    </>
-                )}
+                        </>
+                    ) : (
+                        /* Itinerary View (Detailed) */
+                        itinerary.map((day) => (
+                            <View key={day.day} style={styles.daySection}>
+                                <View style={styles.dayHeader}>
+                                    <Text style={styles.dayTitle}>Day {day.day}</Text>
+                                    {/* Optional Optimize Button */}
+                                </View>
+                                {day.spots.map((spot, index) => (
+                                    <View key={index} style={styles.itinerarySpot}>
+                                        <Text style={styles.itinerarySpotTime}>10:00</Text>
+                                        {/* Placeholder time */}
+                                        <View style={styles.timelineContainer}>
+                                            <View style={[styles.timelineDot, { backgroundColor: DAY_COLORS[(day.day - 1) % DAY_COLORS.length] }]} />
+                                            {index < day.spots.length - 1 && <View style={styles.timelineLine} />}
+                                        </View>
+                                        <View style={styles.itinerarySpotContent}>
+                                            <Image source={{ uri: spot.imageUrl }} style={styles.itinerarySpotImage} />
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.itinerarySpotName}>{spot.name}</Text>
+                                                <Text style={styles.itinerarySpotCategory}>{spot.category}</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        ))
+                    )}
+                </ScrollView>
             </View>
         </View>
     );
@@ -455,9 +368,9 @@ const styles = StyleSheet.create({
     },
     mapHeader: {
         position: 'absolute',
-        top: 50,
-        left: 16,
-        right: 16,
+        top: 60,
+        left: 20,
+        right: 20,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -475,59 +388,24 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
     },
-    dayBadges: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    dayBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-    },
-    dayBadgeText: {
-        color: '#FFFFFF',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    editButton: {
+    mapEditButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
-        gap: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    editText: {
-        color: '#3B82F6',
-        fontWeight: '500',
-    },
-    headerButtons: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    deleteButton: {
-        width: 40,
-        height: 40,
+        backgroundColor: '#000000',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
         borderRadius: 20,
-        backgroundColor: '#FFFFFF',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        gap: 6,
+    },
+    mapEditText: {
+        color: '#FFFFFF',
+        fontWeight: '600',
+        fontSize: 14,
     },
     markerContainer: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         alignItems: 'center',
         justifyContent: 'center',
         borderWidth: 2,
@@ -535,7 +413,7 @@ const styles = StyleSheet.create({
     },
     markerText: {
         color: '#FFFFFF',
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: 'bold',
     },
 
@@ -668,8 +546,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        marginTop: -24,
-        paddingTop: 20,
+        marginTop: -30,
+        paddingTop: 10,
     },
     generatingContainer: {
         flex: 1,
@@ -683,175 +561,197 @@ const styles = StyleSheet.create({
     },
     tripHeader: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        marginBottom: 16,
+        paddingTop: 20,
+        paddingBottom: 16,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 4,
     },
     tripName: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#1F2937',
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#000000',
+    },
+    metaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
     },
     tripMeta: {
         fontSize: 14,
         color: '#6B7280',
-        marginTop: 2,
+        fontWeight: '500',
     },
     shareButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F3F4F6',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 8,
-        gap: 4,
+        backgroundColor: '#000000',
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 12,
+        gap: 6,
+        height: 40,
+        alignSelf: 'flex-start',
     },
     shareText: {
-        color: '#1F2937',
-        fontWeight: '500',
+        color: '#FFFFFF',
+        fontWeight: '600',
+        fontSize: 14,
     },
     tabs: {
         flexDirection: 'row',
         paddingHorizontal: 20,
         borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
+        borderBottomColor: '#F3F4F6',
+        gap: 24,
     },
     tab: {
         paddingVertical: 12,
-        marginRight: 24,
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
     },
     tabActive: {
-        borderBottomWidth: 2,
-        borderBottomColor: '#1F2937',
+        borderBottomColor: '#000000',
     },
     tabText: {
         fontSize: 16,
+        fontWeight: '600',
         color: '#9CA3AF',
     },
     tabTextActive: {
-        color: '#1F2937',
-        fontWeight: '600',
+        color: '#000000',
     },
     content: {
         flex: 1,
         paddingHorizontal: 20,
-        paddingTop: 16,
+        paddingTop: 20,
+        backgroundColor: '#FFFFFF',
     },
     overviewHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginBottom: 16,
+        marginBottom: 20,
     },
     overviewEmoji: {
-        fontSize: 20,
+        fontSize: 24,
     },
     overviewTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#1F2937',
-    },
-    daySummary: {
-        marginBottom: 16,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6',
-    },
-    daySummaryTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
-        color: '#1F2937',
+        fontWeight: '700',
+        color: '#374151',
+    },
+    dayCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        marginBottom: 16,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
+    },
+    dayCardTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#000000',
+        marginBottom: 12,
+    },
+    dayCardContent: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
+    dayCardRoute: {
+        fontSize: 15,
+        color: '#4B5563',
+        lineHeight: 22,
+    },
+    unplannedCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 20,
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: '#F3F4F6',
+    },
+    unplannedCardTitle: {
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#000000',
         marginBottom: 4,
     },
-    daySummarySpots: {
-        fontSize: 14,
-        color: '#6B7280',
-        lineHeight: 20,
-    },
-    unplannedSection: {
-        marginTop: 8,
-    },
-    unplannedTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#1F2937',
-    },
-    unplannedText: {
-        fontSize: 14,
+    unplannedCardText: {
+        fontSize: 15,
         color: '#9CA3AF',
-        marginTop: 4,
     },
+    // Itinerary View Styles
     daySection: {
-        marginBottom: 24,
+        marginBottom: 30,
     },
     dayHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     dayTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#1F2937',
-    },
-    optimizeButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    optimizeText: {
-        color: '#3B82F6',
-        fontWeight: '500',
-    },
-    addPlaceButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F3F4F6',
-        paddingVertical: 16,
-        borderRadius: 12,
-        gap: 8,
-    },
-    addPlaceText: {
-        color: '#3B82F6',
-        fontWeight: '500',
+        fontSize: 20,
+        fontWeight: '800',
+        color: '#000000',
     },
     itinerarySpot: {
         flexDirection: 'row',
+        marginBottom: 20,
+        paddingLeft: 10,
+    },
+    itinerarySpotTime: {
+        width: 50,
+        fontSize: 14,
+        color: '#6B7280',
+        fontWeight: '500',
+        paddingTop: 2,
+    },
+    timelineContainer: {
         alignItems: 'center',
-        backgroundColor: '#F9FAFB',
-        borderRadius: 12,
-        padding: 12,
-        marginBottom: 8,
+        marginRight: 16,
+        width: 20,
+    },
+    timelineDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: '#3B82F6',
+    },
+    timelineLine: {
+        width: 2,
+        flex: 1,
+        backgroundColor: '#E5E7EB',
+        marginVertical: 4,
+    },
+    itinerarySpotContent: {
+        flex: 1,
+        flexDirection: 'row',
         gap: 12,
     },
-    spotBadge: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    spotBadgeText: {
-        color: '#FFFFFF',
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
     itinerarySpotImage: {
-        width: 48,
-        height: 48,
-        borderRadius: 8,
-        backgroundColor: '#E5E7EB',
-    },
-    itinerarySpotInfo: {
-        flex: 1,
+        width: 60,
+        height: 60,
+        borderRadius: 10,
+        backgroundColor: '#F3F4F6',
     },
     itinerarySpotName: {
-        fontSize: 15,
+        fontSize: 16,
         fontWeight: '600',
         color: '#1F2937',
+        marginBottom: 4,
     },
     itinerarySpotCategory: {
         fontSize: 13,

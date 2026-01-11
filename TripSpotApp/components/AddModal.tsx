@@ -74,7 +74,7 @@ export default function AddModal({ visible, onClose }: AddModalProps) {
 
     const handleFindTrip = () => {
         handleClose();
-        // TODO: Navigate to find trip screen
+        setTimeout(() => router.push("/trip/new"), 300);
     };
 
     const handleAddSpots = () => {
