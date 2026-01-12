@@ -400,6 +400,97 @@ Rules:
 }
 
 /**
+ * Extract travel spots from a set of images (slideshow) using Gemini's multimodal capabilities
+ */
+export async function extractSpotsFromImages(
+    imagesBase64: string[],
+    caption: string
+): Promise<ExtractedSpot[]> {
+    if (!GEMINI_API_KEY) {
+        throw new Error('Gemini API key not configured');
+    }
+
+    if (imagesBase64.length === 0) {
+        return extractSpotsFromCaption(caption);
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    const prompt = `You are a travel content analyzer. Analyze these images from a TikTok slideshow and the caption to extract all travel locations, restaurants, cafes, hotels, or attractions.
+
+VIDEO CAPTION: "${caption}"
+
+Analyze EVERYTHING in the images:
+1. Visual content - Landmarks, storefronts, signs, menus, names
+2. Text overlays - Read any text on the slides
+3. Context clues - Identify city/country from visual elements across all slides
+
+For each location found, provide a JSON array with:
+- name: The exact name of the place
+- category: One of: cafe, restaurant, attraction, hotel, bar, other
+- description: Brief 1-sentence description
+- confidence: 0-1 confidence level
+- estimatedLocation: {city, country, lat, lng} if identifiable
+
+Return ONLY valid JSON array. Return [] if no identifiable places found. Rules: confidence > 0.6, ignore generic mentions.`;
+
+    console.log(`Sending ${imagesBase64.length} images to Gemini for analysis...`);
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            contents: [{
+                parts: [
+                    ...imagesBase64.map(base64 => ({
+                        inlineData: {
+                            mimeType: 'image/jpeg',
+                            data: base64
+                        }
+                    })),
+                    { text: prompt }
+                ]
+            }],
+            generationConfig: {
+                temperature: 0.3,
+                maxOutputTokens: 4096,
+            }
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.text();
+        console.error('Gemini image analysis error:', error);
+        throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid response from Gemini image analysis');
+    }
+
+    const text = data.candidates[0].content.parts[0].text;
+    console.log('Gemini image analysis complete');
+
+    let cleanText = text.trim();
+    if (cleanText.startsWith('```json')) cleanText = cleanText.slice(7);
+    if (cleanText.startsWith('```')) cleanText = cleanText.slice(3);
+    if (cleanText.endsWith('```')) cleanText = cleanText.slice(0, -3);
+    cleanText = cleanText.trim();
+
+    try {
+        const spots: ExtractedSpot[] = JSON.parse(cleanText);
+        return spots.filter(spot => spot.confidence >= 0.6);
+    } catch (parseError) {
+        console.error('Failed to parse Gemini response:', cleanText);
+        throw new Error('Failed to parse extracted spots from images');
+    }
+}
+
+/**
  * Extract spots from caption text only (faster, cheaper fallback)
  */
 export async function extractSpotsFromCaption(caption: string): Promise<ExtractedSpot[]> {

@@ -14,8 +14,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { fetchTikTokData, downloadVideoAsBase64, isTikTokUrl, TikTokData } from "../lib/tiktok";
-import { extractSpotsFromVideo, extractSpotsFromCaption, ExtractedSpot } from "../lib/gemini";
+import { fetchTikTokData, downloadVideoAsBase64, downloadImagesAsBase64, isTikTokUrl, TikTokData } from "../lib/tiktok";
+import { extractSpotsFromVideo, extractSpotsFromImages, extractSpotsFromCaption, ExtractedSpot } from "../lib/gemini";
 import { enrichSpotsWithPlaces } from "../lib/places";
 import { supabase } from "../lib/supabase";
 import { Database } from "../lib/database.types";
@@ -108,39 +108,46 @@ export default function ImportScreen() {
             const data = await fetchTikTokData(url);
             setTiktokData(data);
 
-            // Step 2: Download video for analysis
-            setLoadingMessage("Downloading video...");
-            let videoBase64: string | null = null;
-            try {
-                videoBase64 = await downloadVideoAsBase64(data.playUrl);
-            } catch (downloadError) {
-                console.log("Video download failed, falling back to caption-only analysis");
-            }
+            // Step 2 & 3: Extract spots using AI
+            let spots: ExtractedSpot[] = [];
 
-            // Step 3: Extract spots using AI
-            setLoadingMessage("Detecting travel spots...");
-            let spots: ExtractedSpot[];
-
-            if (videoBase64) {
-                // Full video analysis
-                spots = await extractSpotsFromVideo(videoBase64, data.title);
-            } else {
-                // Caption-only fallback
-                spots = await extractSpotsFromCaption(data.title);
-            }
-
-            if (spots.length === 0) {
-                // If video analysis found nothing, try caption as backup
-                if (videoBase64) {
-                    const captionSpots = await extractSpotsFromCaption(data.title);
-                    spots = captionSpots;
+            // Case A: Slideshow images (Best for slideshows)
+            if (data.images && data.images.length > 0) {
+                setLoadingMessage("Downloading images...");
+                try {
+                    const imagesBase64 = await downloadImagesAsBase64(data.images);
+                    setLoadingMessage("Detecting spots from slides...");
+                    spots = await extractSpotsFromImages(imagesBase64, data.title);
+                } catch (imgError) {
+                    console.log("Image analysis failed:", imgError);
                 }
+            }
+
+            // Case B: Video analysis (if No images or image analysis failed)
+            if (spots.length === 0 && data.playUrl) {
+                setLoadingMessage("Downloading video...");
+                let videoBase64: string | null = null;
+                try {
+                    videoBase64 = await downloadVideoAsBase64(data.playUrl);
+                    if (videoBase64) {
+                        setLoadingMessage("Detecting travel spots...");
+                        spots = await extractSpotsFromVideo(videoBase64, data.title);
+                    }
+                } catch (videoError) {
+                    console.log("Video analysis failed:", videoError);
+                }
+            }
+
+            // Case C: Caption fallback (if video/images found nothing or failed)
+            if (spots.length === 0) {
+                setLoadingMessage("Analyzing caption...");
+                spots = await extractSpotsFromCaption(data.title);
             }
 
             if (spots.length === 0) {
                 Alert.alert(
                     "No Spots Found",
-                    "We couldn't identify any specific locations in this video. Try a different travel video.",
+                    "We couldn't identify any specific locations in this TikTok. Try a different video or copy the caption text manually.",
                     [{ text: "OK", onPress: () => setState("input") }]
                 );
                 return;

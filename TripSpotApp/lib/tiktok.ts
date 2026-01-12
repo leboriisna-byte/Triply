@@ -8,6 +8,7 @@ export interface TikTokData {
     playUrl: string;         // Video URL (no watermark)
     hdPlayUrl: string;       // HD video URL
     duration: number;        // Video duration in seconds
+    images?: string[];       // Images for slideshows
     author: {
         uniqueId: string;
         nickname: string;
@@ -25,6 +26,7 @@ export interface TikTokApiResponse {
         play: string;
         hdplay: string;
         duration: number;
+        images?: string[];
         author: {
             unique_id: string;
             nickname: string;
@@ -85,6 +87,7 @@ export async function fetchTikTokData(url: string): Promise<TikTokData> {
         playUrl: data.play || '',
         hdPlayUrl: data.hdplay || data.play || '',
         duration: data.duration || 0,
+        images: data.images || [],
         author: {
             uniqueId: data.author?.unique_id || '',
             nickname: data.author?.nickname || '',
@@ -121,4 +124,38 @@ export async function downloadVideoAsBase64(videoUrl: string): Promise<string> {
         reader.onerror = reject;
         reader.readAsDataURL(blob);
     });
+}
+
+/**
+ * Download multiple images and convert to base64 array
+ */
+export async function downloadImagesAsBase64(imageUrls: string[]): Promise<string[]> {
+    console.log(`Downloading ${imageUrls.length} images for analysis...`);
+
+    // Limit to first 12 images to avoid token limits/overwhelming AI
+    const limitedUrls = imageUrls.slice(0, 12);
+
+    const base64Promises = limitedUrls.map(async (url) => {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return null;
+            const blob = await response.blob();
+
+            return new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64 = reader.result as string;
+                    resolve(base64.split(',')[1]);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        } catch (e) {
+            console.error('Failed to download image:', url, e);
+            return null;
+        }
+    });
+
+    const results = await Promise.all(base64Promises);
+    return results.filter((b): b is string => b !== null);
 }
