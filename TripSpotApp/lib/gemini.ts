@@ -24,6 +24,20 @@ export interface DayPlan {
     spots: GeneratedSpot[];
 }
 
+// Spot extracted from TikTok/Instagram content
+export interface ExtractedSpot {
+    name: string;
+    category: 'cafe' | 'restaurant' | 'attraction' | 'hotel' | 'bar' | 'other';
+    description: string;
+    confidence: number; // 0-1 how confident the AI is about this spot
+    estimatedLocation?: {
+        city?: string;
+        country?: string;
+        lat?: number;
+        lng?: number;
+    };
+}
+
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || '';
 
 async function callGemini(prompt: string): Promise<string> {
@@ -270,4 +284,150 @@ function getMockSpots(preferences: TripPreferences): GeneratedSpot[] {
         country: preferences.country || preferences.destination,
         imageUrl: `https://picsum.photos/seed/${encodeURIComponent(spot.name + index)}/400/300`,
     }));
+}
+
+/**
+ * Extract travel spots from a TikTok video using Gemini's multimodal capabilities
+ * Analyzes video content, audio, text overlays, and caption to find locations
+ */
+export async function extractSpotsFromVideo(
+    videoBase64: string,
+    caption: string,
+    mimeType: string = 'video/mp4'
+): Promise<ExtractedSpot[]> {
+    if (!GEMINI_API_KEY) {
+        throw new Error('Gemini API key not configured');
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    const prompt = `You are a travel content analyzer. Analyze this TikTok video and its caption to extract all travel locations, restaurants, cafes, hotels, or attractions mentioned or shown.
+
+VIDEO CAPTION: "${caption}"
+
+Analyze EVERYTHING in the video:
+1. Visual content - Look for landmarks, storefronts, signs, menus, location names
+2. Audio/speech - Listen for place names mentioned verbally
+3. Text overlays - Read any text in the video (captions, location tags, titles)
+4. Context clues - Identify the city/country from visual elements
+
+For each location found, provide:
+- name: The exact name of the place
+- category: One of: cafe, restaurant, attraction, hotel, bar, other
+- description: Brief 1-sentence description of what it is and why it's featured
+- confidence: 0-1 how confident you are this is a real, identifiable place
+- estimatedLocation: Your best estimate of where this is (city, country, and approximate lat/lng if you know the place)
+
+Return ONLY valid JSON array. Example:
+[
+  {
+    "name": "Café de Flore",
+    "category": "cafe",
+    "description": "Historic Parisian café famous for its literary clientele and classic French atmosphere",
+    "confidence": 0.95,
+    "estimatedLocation": {
+      "city": "Paris",
+      "country": "France",
+      "lat": 48.8543,
+      "lng": 2.3328
+    }
+  }
+]
+
+Rules:
+- Only include places you can identify with reasonable confidence (>0.6)
+- If you can't determine exact coordinates, provide city/country only
+- Focus on places the video is recommending or featuring
+- Ignore generic mentions (like "the airport" or "our hotel" without a name)
+- Return empty array [] if no identifiable places are found`;
+
+    console.log('Sending video to Gemini for analysis...');
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            contents: [{
+                parts: [
+                    {
+                        inlineData: {
+                            mimeType: mimeType,
+                            data: videoBase64
+                        }
+                    },
+                    { text: prompt }
+                ]
+            }],
+            generationConfig: {
+                temperature: 0.3, // Lower temperature for more factual extraction
+                maxOutputTokens: 4096,
+            }
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.text();
+        console.error('Gemini video analysis error:', error);
+        throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.candidates || !data.candidates[0]?.content?.parts?.[0]?.text) {
+        throw new Error('Invalid response from Gemini video analysis');
+    }
+
+    const text = data.candidates[0].content.parts[0].text;
+    console.log('Gemini video analysis complete');
+
+    // Clean and parse response
+    let cleanText = text.trim();
+    if (cleanText.startsWith('```json')) cleanText = cleanText.slice(7);
+    if (cleanText.startsWith('```')) cleanText = cleanText.slice(3);
+    if (cleanText.endsWith('```')) cleanText = cleanText.slice(0, -3);
+    cleanText = cleanText.trim();
+
+    try {
+        const spots: ExtractedSpot[] = JSON.parse(cleanText);
+        // Filter out low confidence results
+        return spots.filter(spot => spot.confidence >= 0.6);
+    } catch (parseError) {
+        console.error('Failed to parse Gemini response:', cleanText);
+        throw new Error('Failed to parse extracted spots');
+    }
+}
+
+/**
+ * Extract spots from caption text only (faster, cheaper fallback)
+ */
+export async function extractSpotsFromCaption(caption: string): Promise<ExtractedSpot[]> {
+    const prompt = `Extract all travel locations from this TikTok caption:
+
+"${caption}"
+
+For each location, provide a JSON array with:
+- name: Place name
+- category: cafe, restaurant, attraction, hotel, bar, or other
+- description: Brief description
+- confidence: 0-1 confidence level
+- estimatedLocation: {city, country, lat, lng} if identifiable
+
+Return ONLY valid JSON array. Return [] if no places found.`;
+
+    try {
+        const text = await callGemini(prompt);
+
+        let cleanText = text.trim();
+        if (cleanText.startsWith('```json')) cleanText = cleanText.slice(7);
+        if (cleanText.startsWith('```')) cleanText = cleanText.slice(3);
+        if (cleanText.endsWith('```')) cleanText = cleanText.slice(0, -3);
+
+        const spots: ExtractedSpot[] = JSON.parse(cleanText.trim());
+        return spots.filter(spot => spot.confidence >= 0.6);
+    } catch (error) {
+        console.error('Caption extraction error:', error);
+        return [];
+    }
 }
