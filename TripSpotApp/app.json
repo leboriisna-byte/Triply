@@ -4,14 +4,14 @@
     "slug": "triply",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.jpeg",
+    "icon": "./assets/logo-mint.jpeg",
     "userInterfaceStyle": "light",
     "scheme": "triply",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/logo.jpeg",
+      "image": "./assets/logo-mint.jpeg",
       "resizeMode": "contain",
-      "backgroundColor": "#E8F4FC"
+      "backgroundColor": "#E9FBF4"
     },
     "ios": {
       "supportsTablet": true,
@@ -20,7 +20,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#E8F4FC"
+        "backgroundColor": "#E9FBF4"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.tripspot.app"

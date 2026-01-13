@@ -10,7 +10,7 @@ export default function TabLayout() {
 
     return (
         <LinearGradient
-            colors={["#E8F4FC", "#FFFFFF"]}
+            colors={["#E9FBF4", "#FFFFFF"]}
             style={{ flex: 1 }}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 0.5, y: 1 }}
@@ -20,7 +20,7 @@ export default function TabLayout() {
                     headerShown: false,
                     tabBarShowLabel: false,
                     tabBarStyle: styles.tabBar,
-                    tabBarActiveTintColor: "#1991E1",
+                    tabBarActiveTintColor: "#3ED598",
                     tabBarInactiveTintColor: "#9CA3AF",
                 }}
             >

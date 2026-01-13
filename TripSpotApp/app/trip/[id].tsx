@@ -27,7 +27,7 @@ interface DayItinerary {
     spots: GeneratedSpot[];
 }
 
-const DAY_COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4'];
+const DAY_COLORS = ['#3ED598', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#2ECC8F'];
 
 export default function TripPlannerScreen() {
     const { id, newTrip, spotsJson } = useLocalSearchParams<{
@@ -144,10 +144,11 @@ export default function TripPlannerScreen() {
             const destination = trip?.destination || 'Trip';
             const days = trip?.duration_days || 3;
 
-            // Add country info to spots for database persistence
+            // Add country and city info to spots for database persistence
             const spotsWithCountry = spots.map(s => ({
                 ...s,
                 country: destination, // Use trip destination as country
+                city: s.city || destination, // Use city if available, otherwise use destination
             }));
 
             const generated = await generateItinerary(destination, spotsWithCountry, days);
@@ -203,7 +204,7 @@ export default function TripPlannerScreen() {
     const handleDeleteTrip = () => {
         Alert.alert(
             'Delete Trip',
-            'Are you sure you want to delete this trip? This cannot be undone.',
+            'Are you sure you want to delete this trip? This cannot be undone and all saved spots for this trip will be removed.',
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
@@ -277,7 +278,7 @@ export default function TripPlannerScreen() {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#3B82F6" />
+                    <ActivityIndicator size="large" color="#3ED598" />
                 </View>
             </SafeAreaView>
         );
@@ -388,10 +389,21 @@ export default function TripPlannerScreen() {
                             <Ionicons name="chevron-forward" size={14} color="#9CA3AF" />
                         </View>
                     </View>
-                    <TouchableOpacity style={styles.shareButton}>
-                        <Ionicons name="share-outline" size={20} color="#FFFFFF" />
-                        <Text style={styles.shareText}>Share</Text>
-                    </TouchableOpacity>
+                    <View style={{ flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                        <TouchableOpacity style={[styles.shareButton, { alignSelf: 'flex-end' }]}>
+                            <Ionicons name="share-outline" size={20} color="#FFFFFF" />
+                            <Text style={styles.shareText}>Share</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.shareButton,
+                                { backgroundColor: '#FEE2E2', paddingHorizontal: 0, width: 40, justifyContent: 'center', alignSelf: 'flex-end' }
+                            ]}
+                            onPress={handleDeleteTrip}
+                        >
+                            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* Tabs */}
@@ -438,7 +450,7 @@ export default function TripPlannerScreen() {
                                         </View>
                                         <Text style={styles.dayCardTitle}>Day {day.day}</Text>
                                         {selectedDay === dayIndex && (
-                                            <Ionicons name="checkmark-circle" size={20} color="#3B82F6" />
+                                            <Ionicons name="checkmark-circle" size={20} color="#3ED598" />
                                         )}
                                     </View>
                                     <View style={styles.dayCardContent}>
@@ -635,7 +647,7 @@ const styles = StyleSheet.create({
         width: 24,
         height: 24,
         borderRadius: 12,
-        backgroundColor: '#3B82F6',
+        backgroundColor: '#3ED598',
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -809,9 +821,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     dayCardSelected: {
-        borderColor: '#3B82F6',
+        borderColor: '#3ED598',
         borderWidth: 2,
-        backgroundColor: '#F0F9FF',
+        backgroundColor: '#E9FBF4',
     },
     dayCardHeader: {
         flexDirection: 'row',
@@ -894,7 +906,7 @@ const styles = StyleSheet.create({
         width: 12,
         height: 12,
         borderRadius: 6,
-        backgroundColor: '#3B82F6',
+        backgroundColor: '#3ED598',
     },
     timelineLine: {
         width: 2,
@@ -944,7 +956,7 @@ const styles = StyleSheet.create({
     },
     aiPromptButtonPrimary: {
         flex: 1,
-        backgroundColor: '#0EA5E9',
+        backgroundColor: '#3ED598',
         paddingVertical: 14,
         borderRadius: 10,
         alignItems: 'center',

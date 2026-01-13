@@ -3,7 +3,6 @@ import {
     View,
     Text,
     TextInput,
-    TouchableOpacity,
     Image,
     StyleSheet,
     KeyboardAvoidingView,
@@ -16,6 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../hooks/useAuth";
+import { AnimatedEntry } from "../components/ui/AnimatedEntry";
+import { AnimatedPressable } from "../components/ui/AnimatedPressable";
 
 export default function AuthScreen() {
     const [isSignUp, setIsSignUp] = useState(false);
@@ -40,8 +41,6 @@ export default function AuthScreen() {
         try {
             if (isSignUp) {
                 await signUp(email, password, name);
-                // For development - just sign in directly after signup
-                // In production, you'd want email verification
                 try {
                     await signIn(email, password);
                     router.replace("/(tabs)");
@@ -69,119 +68,135 @@ export default function AuthScreen() {
     };
 
     return (
-        <LinearGradient colors={["#E8F4FC", "#FFFFFF"]} style={styles.gradient}>
+        <LinearGradient colors={["#E9FBF4", "#FFFFFF"]} style={styles.gradient}>
             <SafeAreaView style={styles.container}>
                 <KeyboardAvoidingView
                     style={styles.content}
                     behavior={Platform.OS === "ios" ? "padding" : "height"}
                 >
-                    {/* Logo */}
-                    <View style={styles.logoContainer}>
-                        <Image
-                            source={require("../assets/logonobg.png")}
-                            style={styles.logoImage}
-                        />
-                        <Text style={styles.tagline}>Plan your perfect adventure</Text>
-                    </View>
+                    {/* Logo - First to enter */}
+                    <AnimatedEntry index={0} direction="down">
+                        <View style={styles.logoContainer}>
+                            <Image
+                                source={require("../assets/logonobg.png")}
+                                style={styles.logoImage}
+                            />
+                            <Text style={styles.tagline}>Plan your perfect adventure</Text>
+                        </View>
+                    </AnimatedEntry>
 
-                    {/* Form */}
+                    {/* Form - Enters slightly later */}
                     <View style={styles.form}>
                         {isSignUp && (
+                            <AnimatedEntry index={1} direction="left">
+                                <View style={styles.inputContainer}>
+                                    <Ionicons
+                                        name="person-outline"
+                                        size={20}
+                                        color="#6B7280"
+                                        style={styles.inputIcon}
+                                    />
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Your name"
+                                        placeholderTextColor="#9CA3AF"
+                                        value={name}
+                                        onChangeText={setName}
+                                        autoCapitalize="words"
+                                    />
+                                </View>
+                            </AnimatedEntry>
+                        )}
+
+                        <AnimatedEntry index={2} direction="left" delay={50}>
                             <View style={styles.inputContainer}>
                                 <Ionicons
-                                    name="person-outline"
+                                    name="mail-outline"
                                     size={20}
                                     color="#6B7280"
                                     style={styles.inputIcon}
                                 />
                                 <TextInput
                                     style={styles.input}
-                                    placeholder="Your name"
+                                    placeholder="Email address"
                                     placeholderTextColor="#9CA3AF"
-                                    value={name}
-                                    onChangeText={setName}
-                                    autoCapitalize="words"
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
                                 />
                             </View>
-                        )}
+                        </AnimatedEntry>
 
-                        <View style={styles.inputContainer}>
-                            <Ionicons
-                                name="mail-outline"
-                                size={20}
-                                color="#6B7280"
-                                style={styles.inputIcon}
-                            />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Email address"
-                                placeholderTextColor="#9CA3AF"
-                                value={email}
-                                onChangeText={setEmail}
-                                autoCapitalize="none"
-                                keyboardType="email-address"
-                            />
-                        </View>
+                        <AnimatedEntry index={3} direction="left" delay={100}>
+                            <View style={styles.inputContainer}>
+                                <Ionicons
+                                    name="lock-closed-outline"
+                                    size={20}
+                                    color="#6B7280"
+                                    style={styles.inputIcon}
+                                />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Password"
+                                    placeholderTextColor="#9CA3AF"
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry
+                                />
+                            </View>
+                        </AnimatedEntry>
 
-                        <View style={styles.inputContainer}>
-                            <Ionicons
-                                name="lock-closed-outline"
-                                size={20}
-                                color="#6B7280"
-                                style={styles.inputIcon}
-                            />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Password"
-                                placeholderTextColor="#9CA3AF"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                            />
-                        </View>
+                        <AnimatedEntry index={4} direction="up" delay={150}>
+                            <AnimatedPressable
+                                style={styles.submitButton}
+                                onPress={handleSubmit}
+                                disabled={loading}
+                            >
+                                {loading ? (
+                                    <ActivityIndicator color="#FFFFFF" />
+                                ) : (
+                                    <Text style={styles.submitButtonText}>
+                                        {isSignUp ? "Create Account" : "Sign In"}
+                                    </Text>
+                                )}
+                            </AnimatedPressable>
+                        </AnimatedEntry>
 
-                        <TouchableOpacity
-                            style={styles.submitButton}
-                            onPress={handleSubmit}
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color="#FFFFFF" />
-                            ) : (
-                                <Text style={styles.submitButtonText}>
-                                    {isSignUp ? "Create Account" : "Sign In"}
+                        <AnimatedEntry index={5} direction="up">
+                            <AnimatedPressable
+                                style={styles.switchButton}
+                                onPress={() => setIsSignUp(!isSignUp)}
+                            >
+                                <Text style={styles.switchButtonText}>
+                                    {isSignUp
+                                        ? "Already have an account? Sign In"
+                                        : "Don't have an account? Sign Up"}
                                 </Text>
-                            )}
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.switchButton}
-                            onPress={() => setIsSignUp(!isSignUp)}
-                        >
-                            <Text style={styles.switchButtonText}>
-                                {isSignUp
-                                    ? "Already have an account? Sign In"
-                                    : "Don't have an account? Sign Up"}
-                            </Text>
-                        </TouchableOpacity>
+                            </AnimatedPressable>
+                        </AnimatedEntry>
                     </View>
 
                     {/* Divider */}
-                    <View style={styles.divider}>
-                        <View style={styles.dividerLine} />
-                        <Text style={styles.dividerText}>or</Text>
-                        <View style={styles.dividerLine} />
-                    </View>
+                    <AnimatedEntry index={6} direction="up">
+                        <View style={styles.divider}>
+                            <View style={styles.dividerLine} />
+                            <Text style={styles.dividerText}>or</Text>
+                            <View style={styles.dividerLine} />
+                        </View>
+                    </AnimatedEntry>
 
                     {/* Guest Mode */}
-                    <TouchableOpacity style={styles.guestButton} onPress={handleGuestMode}>
-                        <Ionicons name="person-outline" size={20} color="#6B7280" style={{ marginRight: 8 }} />
-                        <Text style={styles.guestButtonText}>Continue as Guest</Text>
-                    </TouchableOpacity>
+                    <AnimatedEntry index={7} direction="up">
+                        <AnimatedPressable style={styles.guestButton} onPress={handleGuestMode}>
+                            <Ionicons name="person-outline" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+                            <Text style={styles.guestButtonText}>Continue as Guest</Text>
+                        </AnimatedPressable>
 
-                    <Text style={styles.guestNote}>
-                        Guest mode lets you explore the app. Sign in later to save your data.
-                    </Text>
+                        <Text style={styles.guestNote}>
+                            Guest mode lets you explore the app. Sign in later to save your data.
+                        </Text>
+                    </AnimatedEntry>
                 </KeyboardAvoidingView>
             </SafeAreaView>
         </LinearGradient>
@@ -256,7 +271,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     switchButtonText: {
-        color: "#3B82F6",
+        color: "#3ED598",
         fontSize: 14,
     },
     divider: {

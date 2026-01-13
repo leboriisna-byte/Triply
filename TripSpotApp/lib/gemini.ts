@@ -1,5 +1,46 @@
 // Gemini AI integration using REST API for better compatibility
 
+// Helper to get a relevant image for a place
+const GOOGLE_PLACES_API_KEY = process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '';
+const imageCache = new Map<string, string>();
+
+// Helper to fetch a real photo from Google Places
+async function fetchPlaceImage(name: string, context: string = ''): Promise<string> {
+    const query = `${name} ${context}`.trim();
+    if (imageCache.has(query)) return imageCache.get(query)!;
+
+    // Default fallback if no key or error
+    const fallback = 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
+
+    if (!GOOGLE_PLACES_API_KEY) return fallback;
+
+    try {
+        const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+                'X-Goog-FieldMask': 'places.photos',
+            },
+            body: JSON.stringify({ textQuery: query })
+        });
+
+        const data = await response.json();
+        const photo = data.places?.[0]?.photos?.[0];
+
+        if (photo?.name) {
+            // photo.name is like "places/PLACE_ID/photos/PHOTO_ID"
+            const url = `https://places.googleapis.com/v1/${photo.name}/media?maxHeightPx=600&maxWidthPx=800&key=${GOOGLE_PLACES_API_KEY}`;
+            imageCache.set(query, url);
+            return url;
+        }
+    } catch (error) {
+        console.warn('Error fetching place image:', error);
+    }
+
+    return fallback;
+}
+
 export interface GeneratedSpot {
     name: string;
     description: string;
@@ -9,6 +50,7 @@ export interface GeneratedSpot {
     imageUrl: string;
     rating?: number;
     country?: string; // Added for database persistence
+    city?: string; // Added for database persistence
 }
 
 export interface TripPreferences {
@@ -86,7 +128,7 @@ async function callGemini(prompt: string): Promise<string> {
  * Generate a complete day-by-day trip plan using AI
  * This creates everything in one call - spots organized by day with themes
  */
-export async function generateFullTrip(preferences: TripPreferences): Promise<DayPlan[]> {
+export async function generateFullTripWithFallback(preferences: TripPreferences): Promise<DayPlan[]> {
     const prompt = `You are an expert travel planner. Create a detailed ${preferences.days}-day trip itinerary for ${preferences.destination}, ${preferences.country}.
 
 The traveler is interested in: ${preferences.categories.join(', ')}.
@@ -134,17 +176,26 @@ Important:
         const itinerary: DayPlan[] = JSON.parse(cleanText);
 
         // Add image URLs and country to each spot
-        return itinerary.map(day => ({
+        return Promise.all(itinerary.map(async (day) => ({
             ...day,
-            spots: day.spots.map((spot, index) => ({
+            spots: await Promise.all(day.spots.map(async (spot) => ({
                 ...spot,
                 country: preferences.country || preferences.destination,
-                imageUrl: `https://picsum.photos/seed/${encodeURIComponent(spot.name + day.day + index)}/400/300`,
-            }))
-        }));
+                imageUrl: await fetchPlaceImage(spot.name, preferences.country || preferences.destination),
+            })))
+        })));
     } catch (error) {
-        console.error('AI Trip Planning Error:', error);
-        throw error; // Don't silently fall back - let the UI handle the error
+        console.error('AI Trip Planning Error (falling back to mock data):', error);
+        // Fallback to mock data so the user can still use the app
+        const mockSpots = await getMockSpots(preferences);
+
+        // Distribute mock spots across days
+        const distribution = Math.ceil(mockSpots.length / preferences.days);
+        return Array.from({ length: preferences.days }, (_, i) => ({
+            day: i + 1,
+            theme: "Explorer Day",
+            spots: mockSpots.slice(i * distribution, (i + 1) * distribution)
+        }));
     }
 }
 
@@ -180,14 +231,14 @@ Return ONLY a valid JSON array, no markdown. Example:
 
         const spots: GeneratedSpot[] = JSON.parse(cleanText);
 
-        return spots.map((spot, index) => ({
+        return Promise.all(spots.map(async (spot, index) => ({
             ...spot,
             country: preferences.country || preferences.destination,
-            imageUrl: `https://picsum.photos/seed/${encodeURIComponent(spot.name + index)}/400/300`,
-        }));
+            imageUrl: await fetchPlaceImage(spot.name, preferences.country || preferences.destination),
+        })));
     } catch (error) {
-        console.error('Gemini spot generation error:', error);
-        throw error; // Don't silently fall back
+        console.error('Gemini spot generation error (falling back to mock data):', error);
+        return await getMockSpots(preferences);
     }
 }
 
@@ -258,7 +309,7 @@ Return ONLY the JSON array, no extra text.`;
     }
 }
 
-function getMockSpots(preferences: TripPreferences): GeneratedSpot[] {
+async function getMockSpots(preferences: TripPreferences): Promise<GeneratedSpot[]> {
     // Fallback mock data when API fails
     const mockSpots: Record<string, GeneratedSpot[]> = {
         'Japan': [
@@ -279,11 +330,11 @@ function getMockSpots(preferences: TripPreferences): GeneratedSpot[] {
 
     const spots = mockSpots[preferences.destination] || mockSpots['default'];
 
-    return spots.slice(0, preferences.days * 3).map((spot, index) => ({
+    return Promise.all(spots.slice(0, preferences.days * 3).map(async (spot) => ({
         ...spot,
         country: preferences.country || preferences.destination,
-        imageUrl: `https://picsum.photos/seed/${encodeURIComponent(spot.name + index)}/400/300`,
-    }));
+        imageUrl: await fetchPlaceImage(spot.name, preferences.country || preferences.destination),
+    })));
 }
 
 /**
@@ -296,7 +347,8 @@ export async function extractSpotsFromVideo(
     mimeType: string = 'video/mp4'
 ): Promise<ExtractedSpot[]> {
     if (!GEMINI_API_KEY) {
-        throw new Error('Gemini API key not configured');
+        console.warn('Gemini API key not configured, returning empty extraction');
+        return [];
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -369,8 +421,8 @@ Rules:
 
     if (!response.ok) {
         const error = await response.text();
-        console.error('Gemini video analysis error:', error);
-        throw new Error(`Gemini API error: ${response.status}`);
+        console.error('Gemini video analysis error (returning empty):', error);
+        return [];
     }
 
     const data = await response.json();
@@ -395,7 +447,7 @@ Rules:
         return spots.filter(spot => spot.confidence >= 0.6);
     } catch (parseError) {
         console.error('Failed to parse Gemini response:', cleanText);
-        throw new Error('Failed to parse extracted spots');
+        return [];
     }
 }
 
@@ -407,7 +459,8 @@ export async function extractSpotsFromImages(
     caption: string
 ): Promise<ExtractedSpot[]> {
     if (!GEMINI_API_KEY) {
-        throw new Error('Gemini API key not configured');
+        console.warn('Gemini API key not configured, returning empty extraction');
+        return [];
     }
 
     if (imagesBase64.length === 0) {
@@ -462,8 +515,8 @@ Return ONLY valid JSON array. Return [] if no identifiable places found. Rules: 
 
     if (!response.ok) {
         const error = await response.text();
-        console.error('Gemini image analysis error:', error);
-        throw new Error(`Gemini API error: ${response.status}`);
+        console.error('Gemini image analysis error (returning empty):', error);
+        return [];
     }
 
     const data = await response.json();
@@ -486,7 +539,7 @@ Return ONLY valid JSON array. Return [] if no identifiable places found. Rules: 
         return spots.filter(spot => spot.confidence >= 0.6);
     } catch (parseError) {
         console.error('Failed to parse Gemini response:', cleanText);
-        throw new Error('Failed to parse extracted spots from images');
+        return [];
     }
 }
 

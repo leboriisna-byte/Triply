@@ -112,12 +112,34 @@ export function useTrips() {
 
     const deleteTrip = async (id: string) => {
         try {
+            // Get all spots associated with this trip before deleting it
+            const { data: stops } = await supabase
+                .from('trip_stops')
+                .select('spot_id')
+                .eq('trip_id', id);
+
+            const spotIds = stops?.map(s => s.spot_id) || [];
+
+            // Delete the trip
             const { error } = await supabase
                 .from('trips')
                 .delete()
                 .eq('id', id);
 
             if (error) throw error;
+
+            // Delete the associated spots
+            if (spotIds.length > 0) {
+                const { error: spotsError } = await supabase
+                    .from('spots')
+                    .delete()
+                    .in('id', spotIds);
+
+                if (spotsError) {
+                    console.error('Failed to clean up spots:', spotsError);
+                }
+            }
+
             setTrips((prev) => prev.filter((trip) => trip.id !== id));
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to delete trip');
@@ -195,6 +217,7 @@ export function useTrips() {
                             name: spot.name,
                             lat: spot.lat,
                             lng: spot.lng,
+                            city: spot.city || spot.name, // Add city field
                             country: spot.country || 'Unknown',
                             category: dbCategory,
                             description: spot.description,

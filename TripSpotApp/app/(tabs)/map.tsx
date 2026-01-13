@@ -68,7 +68,7 @@ export default function MapScreen() {
                                 style={[styles.tab, activeTab === 'trips' && styles.tabActive]}
                                 onPress={() => setActiveTab('trips')}
                             >
-                                <Ionicons name="airplane" size={18} color={activeTab === 'trips' ? '#3B82F6' : '#9CA3AF'} />
+                                <Ionicons name="airplane" size={18} color={activeTab === 'trips' ? '#3ED598' : '#9CA3AF'} />
                                 <Text style={[styles.tabText, activeTab === 'trips' && styles.tabTextActive]}>
                                     My Trips ({trips.length})
                                 </Text>
@@ -77,7 +77,7 @@ export default function MapScreen() {
                                 style={[styles.tab, activeTab === 'spots' && styles.tabActive]}
                                 onPress={() => setActiveTab('spots')}
                             >
-                                <Ionicons name="location" size={18} color={activeTab === 'spots' ? '#3B82F6' : '#9CA3AF'} />
+                                <Ionicons name="location" size={18} color={activeTab === 'spots' ? '#3ED598' : '#9CA3AF'} />
                                 <Text style={[styles.tabText, activeTab === 'spots' && styles.tabTextActive]}>
                                     Saved Spots ({spots.length})
                                 </Text>
@@ -89,7 +89,7 @@ export default function MapScreen() {
                             trips.length === 0 ? (
                                 <View style={styles.emptyState}>
                                     <View style={styles.emptyIcon}>
-                                        <Ionicons name="airplane-outline" size={32} color="#1991E1" />
+                                        <Ionicons name="airplane-outline" size={32} color="#3ED598" />
                                     </View>
                                     <Text style={styles.emptyTitle}>No trips yet</Text>
                                     <Text style={styles.emptySubtitle}>
@@ -129,7 +129,7 @@ export default function MapScreen() {
                             spots.length === 0 ? (
                                 <View style={styles.emptyState}>
                                     <View style={styles.emptyIcon}>
-                                        <Ionicons name="location-outline" size={32} color="#1991E1" />
+                                        <Ionicons name="location-outline" size={32} color="#3ED598" />
                                     </View>
                                     <Text style={styles.emptyTitle}>No spots saved yet</Text>
                                     <Text style={styles.emptySubtitle}>
@@ -154,7 +154,7 @@ export default function MapScreen() {
                                                 <Ionicons
                                                     name={getCategoryIcon(spot.category)}
                                                     size={20}
-                                                    color="#3B82F6"
+                                                    color="#3ED598"
                                                 />
                                             </View>
                                             <View style={styles.spotInfo}>
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     marker: {
-        backgroundColor: "#3B82F6",
+        backgroundColor: "#3ED598",
         borderRadius: 20,
         padding: 8,
         borderWidth: 2,
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     emptyIcon: {
         width: 80,
         height: 80,
-        backgroundColor: "#DBEAFE",
+        backgroundColor: "#E9FBF4",
         borderRadius: 40,
         alignItems: "center",
         justifyContent: "center",
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     spotIcon: {
         width: 40,
         height: 40,
-        backgroundColor: "#DBEAFE",
+        backgroundColor: "#E9FBF4",
         borderRadius: 20,
         alignItems: "center",
         justifyContent: "center",
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
     },
     viewAllText: {
-        color: "#3B82F6",
+        color: "#3ED598",
         fontWeight: "500",
     },
     tabContainer: {
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
         gap: 6,
     },
     tabActive: {
-        backgroundColor: "#DBEAFE",
+        backgroundColor: "#E9FBF4",
     },
     tabText: {
         fontSize: 14,
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
         fontWeight: "500",
     },
     tabTextActive: {
-        color: "#3B82F6",
+        color: "#3ED598",
     },
     createButton: {
         backgroundColor: "#1F2937",

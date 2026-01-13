@@ -123,7 +123,7 @@ export default function AddModal({ visible, onClose }: AddModalProps) {
                                         </Text>
                                     </View>
                                     <View style={styles.iconContainer}>
-                                        <Ionicons name="search" size={28} color="#1991E1" />
+                                        <Ionicons name="search" size={28} color="#3ED598" />
                                     </View>
                                 </View>
                             </TouchableOpacity>
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#000000",
     },
     findTripButton: {
-        backgroundColor: "#E8F4FC",
+        backgroundColor: "#E9FBF4",
     },
     addSpotsButton: {
         backgroundColor: "#FFFFFF",
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
         fontWeight: "700",
     },
     findTripText: {
-        color: "#1991E1",
+        color: "#3ED598",
         fontSize: 20,
         fontWeight: "700",
     },

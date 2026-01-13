@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, RefreshControl } from "react-native";
+import { View, Text, ScrollView, Image, StyleSheet, RefreshControl, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -6,10 +6,12 @@ import { useState, useCallback } from "react";
 import { useTravelGuides } from "../../hooks/useTravelGuides";
 import { useTrips } from "../../hooks/useTrips";
 import { useAuth } from "../../hooks/useAuth";
+import { AnimatedEntry } from "../../components/ui/AnimatedEntry";
+import { AnimatedPressable } from "../../components/ui/AnimatedPressable";
 
 export default function HomeScreen() {
     const { guides, loading: guidesLoading, fetchGuides } = useTravelGuides();
-    const { trips, loading: tripsLoading, fetchTrips } = useTrips();
+    const { trips, loading: tripsLoading, fetchTrips, deleteTrip } = useTrips();
     const { user, isGuest } = useAuth();
     const [refreshing, setRefreshing] = useState(false);
 
@@ -23,6 +25,23 @@ export default function HomeScreen() {
         router.push("/profile");
     };
 
+    const handleDeleteTrip = (tripId: string) => {
+        Alert.alert(
+            "Delete Trip",
+            "Are you sure you want to delete this trip? This cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        await deleteTrip(tripId);
+                    }
+                }
+            ]
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={["top"]}>
             <ScrollView
@@ -34,97 +53,105 @@ export default function HomeScreen() {
                 }
             >
                 {/* Header */}
-                <View style={styles.header}>
-                    <Image
-                        source={require("../../assets/logonobg.png")}
-                        style={styles.logoImage}
-                    />
-                    <TouchableOpacity
-                        style={styles.profileButton}
-                        onPress={handleProfilePress}
-                    >
-                        <Ionicons name="person" size={20} color="#6B7280" />
-                    </TouchableOpacity>
-                </View>
+                <AnimatedEntry index={0} direction="down">
+                    <View style={styles.header}>
+                        <Image
+                            source={require("../../assets/logonobg.png")}
+                            style={styles.logoImage}
+                        />
+                        <AnimatedPressable
+                            style={styles.profileButton}
+                            onPress={handleProfilePress}
+                        >
+                            <Ionicons name="person" size={20} color="#6B7280" />
+                        </AnimatedPressable>
+                    </View>
+                </AnimatedEntry>
 
                 {/* Travel Guides Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Travel Guides</Text>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.guidesScroll}
-                    >
-                        {guides.map((guide) => (
-                            <TouchableOpacity
-                                key={guide.id}
-                                style={styles.guideCard}
-                                activeOpacity={0.8}
-                            >
-                                <Image
-                                    source={{ uri: guide.cover_image_url || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400" }}
-                                    style={styles.guideImage}
-                                    resizeMode="cover"
-                                />
-                                <View style={styles.guideOverlay} />
-                                <View style={styles.guideContent}>
-                                    <View style={styles.guideLocation}>
-                                        <Ionicons name="location" size={12} color="#FFFFFF" />
-                                        <Text style={styles.guideCity}>{guide.city}</Text>
+                <AnimatedEntry index={1} direction="right" delay={100}>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Travel Guides</Text>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.guidesScroll}
+                        >
+                            {guides.map((guide, index) => (
+                                <AnimatedPressable
+                                    key={guide.id}
+                                    style={styles.guideCard}
+                                    onPress={() => { }} // Placeholder for now
+                                >
+                                    <Image
+                                        source={{ uri: guide.cover_image_url || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400" }}
+                                        style={styles.guideImage}
+                                        resizeMode="cover"
+                                    />
+                                    <View style={styles.guideOverlay} />
+                                    <View style={styles.guideContent}>
+                                        <View style={styles.guideLocation}>
+                                            <Ionicons name="location" size={12} color="#FFFFFF" />
+                                            <Text style={styles.guideCity}>{guide.city}</Text>
+                                        </View>
+                                        <Text style={styles.guideName} numberOfLines={2}>
+                                            {guide.name}
+                                        </Text>
+                                        <Text style={styles.guideSpots}>{guide.spot_count} spots</Text>
                                     </View>
-                                    <Text style={styles.guideName} numberOfLines={2}>
-                                        {guide.name}
-                                    </Text>
-                                    <Text style={styles.guideSpots}>{guide.spot_count} spots</Text>
-                                </View>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
+                                </AnimatedPressable>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </AnimatedEntry>
 
                 {/* My Trips Section */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>My Trips</Text>
+                    <AnimatedEntry index={2} direction="up" delay={200}>
+                        <Text style={styles.sectionTitle}>My Trips</Text>
+                    </AnimatedEntry>
 
                     {trips.length === 0 ? (
                         // Empty State
-                        <View style={styles.emptyState}>
-                            <View style={styles.emptyIcon}>
-                                <Ionicons name="airplane" size={48} color="#1991E1" />
+                        <AnimatedEntry index={3} direction="up" delay={300}>
+                            <View style={styles.emptyState}>
+                                <View style={styles.emptyIcon}>
+                                    <Ionicons name="airplane" size={48} color="#3ED598" />
+                                </View>
+                                <Text style={styles.emptyTitle}>No trips yet</Text>
+                                <Text style={styles.emptySubtitle}>
+                                    Start planning your next adventure!
+                                </Text>
+                                <AnimatedPressable
+                                    style={styles.startButton}
+                                    onPress={() => router.push("/trip/new")}
+                                >
+                                    <Text style={styles.startButtonText}>Start new trip</Text>
+                                </AnimatedPressable>
                             </View>
-                            <Text style={styles.emptyTitle}>No trips yet</Text>
-                            <Text style={styles.emptySubtitle}>
-                                Start planning your next adventure!
-                            </Text>
-                            <TouchableOpacity
-                                style={styles.startButton}
-                                onPress={() => router.push("/trip/new")}
-                            >
-                                <Text style={styles.startButtonText}>Start new trip</Text>
-                            </TouchableOpacity>
-                        </View>
+                        </AnimatedEntry>
                     ) : (
                         // Trip Cards
-                        trips.map((trip) => (
-                            <TouchableOpacity
-                                key={trip.id}
-                                style={styles.tripCard}
-                                activeOpacity={0.8}
-                                onPress={() => router.push(`/trip/${trip.id}`)}
-                            >
-                                <Image
-                                    source={{ uri: trip.cover_image_url || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=200" }}
-                                    style={styles.tripImage}
-                                    resizeMode="cover"
-                                />
-                                <View style={styles.tripContent}>
-                                    <Text style={styles.tripName}>{trip.name}</Text>
-                                    <Text style={styles.tripMeta}>
-                                        {trip.duration_days} days • {trip.destination}
-                                    </Text>
-                                </View>
-                                <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
-                            </TouchableOpacity>
+                        trips.map((trip, index) => (
+                            <AnimatedEntry key={trip.id} index={index + 3} direction="up" delay={200}>
+                                <AnimatedPressable
+                                    style={styles.tripCard}
+                                    onPress={() => router.push(`/trip/${trip.id}`)}
+                                >
+                                    <Image
+                                        source={{ uri: trip.cover_image_url || "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=200" }}
+                                        style={styles.tripImage}
+                                        resizeMode="cover"
+                                    />
+                                    <View style={styles.tripContent}>
+                                        <Text style={styles.tripName}>{trip.name}</Text>
+                                        <Text style={styles.tripMeta}>
+                                            {trip.duration_days} days • {trip.destination}
+                                        </Text>
+                                    </View>
+                                    <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+                                </AnimatedPressable>
+                            </AnimatedEntry>
                         ))
                     )}
                 </View>
@@ -278,7 +305,7 @@ const styles = StyleSheet.create({
         marginLeft: 16,
     },
     tripName: {
-        color: "#3B82F6",
+        color: "#3ED598",
         fontWeight: "600",
         fontSize: 16,
     },

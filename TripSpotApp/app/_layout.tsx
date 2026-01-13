@@ -28,8 +28,8 @@ function InitialLayout() {
 
     if (loading) {
         return (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#E8F4FC" }}>
-                <ActivityIndicator size="large" color="#3B82F6" />
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#E9FBF4" }}>
+                <ActivityIndicator size="large" color="#3ED598" />
             </View>
         );
     }
